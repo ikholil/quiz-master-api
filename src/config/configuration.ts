@@ -159,7 +159,7 @@ export function loadConfig(): AppConfig {
       providers: list('AI_PROVIDERS', ['local']),
       chatModel: {
         openai: str('OPENAI_CHAT_MODEL', 'gpt-4o-mini'),
-        anthropic: str('ANTHROPIC_CHAT_MODEL', 'claude-sonnet-5-5'),
+        anthropic: str('ANTHROPIC_CHAT_MODEL', 'claude-opus-5-5'),
         local: 'local-extractive-v1',
       },
       embeddingProvider: str('AI_EMBEDDING_PROVIDER', 'local'),

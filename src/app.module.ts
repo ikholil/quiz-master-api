@@ -17,6 +17,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AttemptsModule } from './modules/attempts/attempts.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AiModule } from './modules/ai/ai.module';
+import { AiGatewayModule } from './modules/ai/ai-gateway.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
@@ -114,6 +115,7 @@ import { UsersModule } from './modules/users/users.module';
     StudyPlansModule,
     RevisionModule,
     MaterialsModule,
+    AiGatewayModule,
     AiModule,
     KnowledgeModule,
     CoursesModule,
