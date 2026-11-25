@@ -1,3 +1,5 @@
+import type { Provider } from '@nestjs/common';
+
 export const QUEUES = {
   MESSAGING: 'messaging', // OTP / SMS / email delivery
   NOTIFICATIONS: 'notifications',
@@ -43,7 +45,7 @@ export const DEFAULT_JOB_OPTIONS = {
 };
 
 /** Processors are only registered when WORKERS_ENABLED is not "false" (allows API-only / worker-only deployments). */
-export function workers<T>(...providers: T[]): T[] {
+export function workers(...providers: Provider[]): Provider[] {
   const flag = (process.env.WORKERS_ENABLED ?? 'true').toLowerCase();
   return flag === 'false' || flag === '0' ? [] : providers;
 }
