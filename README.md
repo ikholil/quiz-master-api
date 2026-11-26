@@ -9,7 +9,11 @@ It serves two clients through one versioned REST contract (`/api/v1`, OpenAPI in
 - the **Next.js** administration dashboard.
 
 **Stack:** NestJS 11 · TypeScript · PostgreSQL 16 + pgvector + pg_trgm · Prisma 6 · Redis · BullMQ · JWT · Swagger · Jest · pino.
-A modular monolith: one deployable, 27 domain modules, API and workers can run as separate processes of the same image.
+A modular monolith: one deployable, 31 domain modules, API and workers can run as separate processes of the same image.
+
+**Content out of the box:** ~2,700 original, auto-verified practice questions across 9 subjects, five exam profiles with
+full-length practice mocks, and a past-paper archive for importing and verifying real papers — see
+[`docs/QUESTION_BANK.md`](docs/QUESTION_BANK.md).
 
 ---
 
@@ -61,8 +65,8 @@ container (`WORKERS_ENABLED=false`) and a `worker` container running every BullM
 
 | Command | What it runs |
 |---|---|
-| `npm test` | 72 unit tests: scoring engine, negative marking, adaptive engine, SM-2, plan generation, content validation, CSV import, AI fallback & guardrails, payment signature verification, chunking, utilities |
-| `npm run test:integration` | 28 API tests against real PostgreSQL + Redis (`quiz_master_test`, Redis DB 15): OTP auth, refresh rotation & reuse detection, brute-force lockout, RBAC, account deletion/export, question review/publication, answer hiding, full attempts, idempotent concurrent submission, rule & question versioning, auto-submit, manual evaluation, payment webhooks (forged / duplicate / amount mismatch), entitlements, renewal, refunds, practice → mastery → recommendations → study plan, RAG with citations |
+| `npm test` | 86 unit tests (including independent re-verification of every computed bank answer): scoring engine, negative marking, adaptive engine, SM-2, plan generation, content validation, CSV import, AI fallback & guardrails, payment signature verification, chunking, utilities |
+| `npm run test:integration` | 39 API tests against real PostgreSQL + Redis (`quiz_master_test`, Redis DB 15): OTP auth, refresh rotation & reuse detection, brute-force lockout, RBAC, account deletion/export, question review/publication, answer hiding, full attempts, idempotent concurrent submission, rule & question versioning, auto-submit, manual evaluation, payment webhooks (forged / duplicate / amount mismatch), entitlements, renewal, refunds, practice → mastery → recommendations → study plan, RAG with citations, bank loading and the 100-question mock, past-paper import/verification/replay/topic frequency, item analysis flags, XP/streaks/achievements, daily challenge, bookmarks, exam calendar |
 | `npm run test:all` | both |
 
 Integration tests set `WORKERS_ENABLED=false` and call job handlers directly, so assertions are deterministic.
@@ -84,6 +88,7 @@ src/
     learning  study-plans  revision  materials
     ai  knowledge  courses  subscriptions  payments
     notifications  community  moderation  support  analytics  maintenance
+    papers  question-analytics  gamification  exam-calendar
 ```
 
 Requests pass through: rate limiter (Redis-backed, multi-instance safe) → JWT guard (verifies token **and** that the
@@ -127,6 +132,18 @@ for dev/tests). Price always comes from the server catalogue; webhooks are signa
 happens in the same transaction as the status change. A reconciliation job re-verifies stale pending payments.
 
 ---
+
+### Engagement & quality features
+
+- **Past-paper archive** with question numbering, evidence-based verification, official vs expert answer keys, disputed-key
+  notes, in-order practice (`PAPER` mode), timed replay mocks and topic-frequency analytics that feed syllabus weights.
+- **Item analysis** (p-value, discrimination, calibrated difficulty, wrong-key detection, distractor analysis) and
+  trigram-based duplicate detection.
+- **Gamification:** idempotent XP ledger, levels, daily streaks, 11 achievements, a daily challenge shared by all students,
+  and XP / mock / daily-challenge leaderboards (display names only).
+- **Question bookmarks** with notes and folders, plus `BOOKMARKS` practice mode.
+- **Exam calendar:** application deadlines, admit cards and exam dates per exam (publishing requires an official source),
+  personal countdowns and reminders 7/3/1 days before.
 
 ## API contract for the clients
 

@@ -35,7 +35,6 @@ import {
   ExamSummaryResponse,
   NoticeDto,
   NoticeResponse,
-  PaperDto,
   PaperResponse,
   StageDto,
   UpdateCategoryDto,
@@ -256,28 +255,6 @@ export class AdminExamsController {
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
   papers(@Param('id', ParseUUIDPipe) id: string) {
     return this.exams.listPapers(id, true);
-  }
-
-  @Post('exams/:id/previous-papers')
-  @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  createPaper(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: PaperDto,
-    @CurrentUser() u: AuthUser,
-    @ReqContext() ctx: RequestContext,
-  ) {
-    return this.exams.createPaper(id, dto, u.id, ctx);
-  }
-
-  @Patch('previous-papers/:id')
-  @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  updatePaper(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: PaperDto,
-    @CurrentUser() u: AuthUser,
-    @ReqContext() ctx: RequestContext,
-  ) {
-    return this.exams.updatePaper(id, dto, u.id, ctx);
   }
 }
 

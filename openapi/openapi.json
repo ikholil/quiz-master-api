@@ -3740,86 +3740,6 @@
         "tags": [
           "Admin · Examination catalog"
         ]
-      },
-      "post": {
-        "operationId": "AdminExams_createPaper",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaperDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "401": {
-            "description": "Missing or invalid access token"
-          },
-          "403": {
-            "description": "Missing permission"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "Admin · Examination catalog"
-        ]
-      }
-    },
-    "/api/v1/admin/previous-papers/{id}": {
-      "patch": {
-        "operationId": "AdminExams_updatePaper",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaperDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "401": {
-            "description": "Missing or invalid access token"
-          },
-          "403": {
-            "description": "Missing permission"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "tags": [
-          "Admin · Examination catalog"
-        ]
       }
     },
     "/api/v1/public/exams/{examId}/syllabus": {
@@ -11149,6 +11069,1356 @@
         ]
       }
     },
+    "/api/v1/admin/question-quality/flagged": {
+      "get": {
+        "operationId": "QuestionAnalytics_flagged",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "flag",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "POSSIBLE_KEY_ERROR",
+                "NEGATIVE_DISCRIMINATION",
+                "LOW_DISCRIMINATION",
+                "TOO_EASY",
+                "TOO_HARD"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Questions flagged by item analysis (possible wrong key, poor discrimination…)",
+        "tags": [
+          "Admin · Question quality"
+        ]
+      }
+    },
+    "/api/v1/admin/question-quality/questions/{id}/distractors": {
+      "get": {
+        "operationId": "QuestionAnalytics_distractors",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Question quality"
+        ]
+      }
+    },
+    "/api/v1/admin/question-quality/similar": {
+      "post": {
+        "operationId": "QuestionAnalytics_similar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimilarDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Find near-duplicate questions for a draft stem (trigram similarity)",
+        "tags": [
+          "Admin · Question quality"
+        ]
+      }
+    },
+    "/api/v1/admin/question-quality/run": {
+      "post": {
+        "operationId": "QuestionAnalytics_run",
+        "parameters": [],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Question quality"
+        ]
+      }
+    },
+    "/api/v1/admin/question-quality/apply-calibration": {
+      "post": {
+        "operationId": "QuestionAnalytics_calibrate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalibrateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Question quality"
+        ]
+      }
+    },
+    "/api/v1/public/exams/{examId}/events": {
+      "get": {
+        "operationId": "ExamCalendar_list",
+        "parameters": [
+          {
+            "name": "examId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Official dates for an exam (each published date links its source)",
+        "tags": [
+          "Exam calendar"
+        ]
+      }
+    },
+    "/api/v1/exam-calendar": {
+      "get": {
+        "operationId": "ExamCalendar_mine",
+        "parameters": [],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Upcoming dates for bookmarked and target exams, with countdowns",
+        "tags": [
+          "Exam calendar"
+        ]
+      }
+    },
+    "/api/v1/admin/exams/{examId}/events": {
+      "get": {
+        "operationId": "ExamCalendar_adminList",
+        "parameters": [
+          {
+            "name": "examId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Exam calendar"
+        ]
+      },
+      "post": {
+        "operationId": "ExamCalendar_create",
+        "parameters": [
+          {
+            "name": "examId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExamEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Exam calendar"
+        ]
+      }
+    },
+    "/api/v1/admin/exam-events/{id}": {
+      "patch": {
+        "operationId": "ExamCalendar_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExamEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Exam calendar"
+        ]
+      },
+      "delete": {
+        "operationId": "ExamCalendar_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Exam calendar"
+        ]
+      }
+    },
+    "/api/v1/gamification/me": {
+      "get": {
+        "operationId": "Gamification_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "XP, level, streak, accuracy and achievements",
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/gamification/daily-challenge": {
+      "get": {
+        "operationId": "Gamification_daily",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Today's challenge (same question for everyone); the key is shown after answering",
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/gamification/daily-challenge/answer": {
+      "post": {
+        "operationId": "Gamification_answer",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailyAnswerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/leaderboards/xp": {
+      "get": {
+        "operationId": "Gamification_xp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/leaderboards/mock-exams/{templateId}": {
+      "get": {
+        "operationId": "Gamification_mock",
+        "parameters": [
+          {
+            "name": "templateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/leaderboards/daily-challenge": {
+      "get": {
+        "operationId": "Gamification_dailyBoard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/questions/bookmarks": {
+      "get": {
+        "operationId": "Gamification_bookmarks",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/questions/{id}/bookmark": {
+      "put": {
+        "operationId": "Gamification_bookmark",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookmarkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bookmark a published question with an optional personal note and folder",
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      },
+      "delete": {
+        "operationId": "Gamification_unbookmark",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Gamification & leaderboards"
+        ]
+      }
+    },
+    "/api/v1/public/previous-papers": {
+      "get": {
+        "operationId": "PublicPapers_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "verificationStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "UNVERIFIED",
+                "VERIFIED",
+                "DISPUTED"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PUBLISHED",
+                "ARCHIVED"
+              ]
+            }
+          },
+          {
+            "name": "examId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Public · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/public/previous-papers/{id}": {
+      "get": {
+        "operationId": "PublicPapers_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Paper with numbered questions (no answers) and its verification status",
+        "tags": [
+          "Public · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/public/exams/{examId}/topic-frequency": {
+      "get": {
+        "operationId": "PublicPapers_frequency",
+        "parameters": [
+          {
+            "name": "examId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "verifiedOnly",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "years",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Which topics are asked most often in verified past papers",
+        "tags": [
+          "Public · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers": {
+      "get": {
+        "operationId": "AdminPapers_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "verificationStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "UNVERIFIED",
+                "VERIFIED",
+                "DISPUTED"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PUBLISHED",
+                "ARCHIVED"
+              ]
+            }
+          },
+          {
+            "name": "examId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      },
+      "post": {
+        "operationId": "AdminPapers_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaperDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}": {
+      "get": {
+        "operationId": "AdminPapers_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}/details": {
+      "patch": {
+        "operationId": "AdminPapers_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaperDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}/questions": {
+      "post": {
+        "operationId": "AdminPapers_attach",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachQuestionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}/questions/{questionId}": {
+      "delete": {
+        "operationId": "AdminPapers_detach",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}/import": {
+      "post": {
+        "operationId": "AdminPapers_import",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportPaperDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Import a whole paper from CSV/JSON (needs a question_number column); repeated questions are linked, not duplicated",
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}/verify": {
+      "post": {
+        "operationId": "AdminPapers_verify",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyPaperDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark the paper verified/disputed against evidence of the official paper",
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}/questions/{questionId}/dispute": {
+      "patch": {
+        "operationId": "AdminPapers_dispute",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/previous-papers/{id}/replay-mock": {
+      "post": {
+        "operationId": "AdminPapers_replay",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a timed mock that replays the paper in its original order",
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/exams/{examId}/topic-frequency": {
+      "get": {
+        "operationId": "AdminPapers_frequency",
+        "parameters": [
+          {
+            "name": "examId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "verifiedOnly",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "years",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
+    "/api/v1/admin/syllabus-versions/{id}/weights-from-papers": {
+      "post": {
+        "operationId": "AdminPapers_applyWeights",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set topic weights from verified past-paper frequency (feeds the adaptive engine)",
+        "tags": [
+          "Admin · Previous-year papers"
+        ]
+      }
+    },
     "/api/v1/health/live": {
       "get": {
         "operationId": "Health_live",
@@ -13224,40 +14494,6 @@
           "status"
         ]
       },
-      "PaperDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "enum": [
-              "DRAFT",
-              "PUBLISHED",
-              "ARCHIVED"
-            ],
-            "type": "string"
-          },
-          "year": {
-            "type": "number",
-            "minimum": 1970,
-            "maximum": 2100
-          },
-          "title": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "sourceReference": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "fileId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "year",
-          "title"
-        ]
-      },
       "SyllabusTopicNode": {
         "type": "object",
         "properties": {
@@ -14241,7 +15477,9 @@
               "EXAM",
               "WEAK_TOPICS",
               "WRONG_ANSWERS",
-              "MIXED"
+              "MIXED",
+              "PAPER",
+              "BOOKMARKS"
             ],
             "type": "string"
           },
@@ -14261,6 +15499,16 @@
             "type": "string",
             "format": "uuid"
           },
+          "paperId": {
+            "type": "string",
+            "description": "PAPER mode: practise a published previous-year paper in its original order.",
+            "format": "uuid"
+          },
+          "folder": {
+            "type": "string",
+            "description": "BOOKMARKS mode: optional bookmark folder.",
+            "maxLength": 60
+          },
           "topicIds": {
             "maxItems": 50,
             "type": "array",
@@ -14272,7 +15520,7 @@
           "questionCount": {
             "type": "number",
             "minimum": 5,
-            "maximum": 100
+            "maximum": 300
           },
           "instantFeedback": {
             "type": "boolean",
@@ -16151,6 +17399,262 @@
             ]
           }
         }
+      },
+      "SimilarDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CalibrateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ExamEventDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "CIRCULAR",
+              "APPLICATION_START",
+              "APPLICATION_DEADLINE",
+              "ADMIT_CARD",
+              "EXAM_DATE",
+              "RESULT",
+              "OTHER"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "UpdateExamEventDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED"
+            ]
+          }
+        }
+      },
+      "DailyAnswerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "BookmarkDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePaperDto": {
+        "type": "object",
+        "properties": {
+          "examId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "year": {
+            "type": "number",
+            "minimum": 1970,
+            "maximum": 2100
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "sourceReference": {
+            "type": "string",
+            "description": "Where the paper came from (publication, archive reference).",
+            "maxLength": 500
+          },
+          "heldOn": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 600
+          },
+          "totalMarks": {
+            "type": "number",
+            "minimum": 0
+          },
+          "negativeMarking": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "examId",
+          "year",
+          "title"
+        ]
+      },
+      "UpdatePaperDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "sourceReference": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "heldOn": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 600
+          },
+          "totalMarks": {
+            "type": "number",
+            "minimum": 0
+          },
+          "negativeMarking": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          }
+        }
+      },
+      "PaperQuestionItemDto": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "questionNumber": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "section": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "marks": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "questionId",
+          "questionNumber"
+        ]
+      },
+      "AttachQuestionsDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaperQuestionItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ImportPaperDto": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "json"
+            ]
+          },
+          "submitForReview": {
+            "type": "boolean",
+            "description": "Default true: imported questions enter the review queue."
+          }
+        },
+        "required": [
+          "fileId",
+          "format"
+        ]
+      },
+      "VerifyPaperDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "UNVERIFIED",
+              "VERIFIED",
+              "DISPUTED"
+            ],
+            "type": "string"
+          },
+          "answerKeyType": {
+            "enum": [
+              "OFFICIAL",
+              "EXPERT",
+              "NONE"
+            ],
+            "type": "string"
+          },
+          "evidenceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "evidenceFileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DisputeDto": {
+        "type": "object",
+        "properties": {
+          "answerDisputed": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "answerDisputed"
+        ]
       }
     }
   }

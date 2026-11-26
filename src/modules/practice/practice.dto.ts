@@ -18,9 +18,13 @@ export class CreatePracticeDto {
   @ApiProperty({ enum: PracticeMode }) @IsEnum(PracticeMode) mode: PracticeMode;
   @IsOptional() @IsUUID() examId?: string;
   @IsOptional() @IsUUID() subjectId?: string;
+  /** PAPER mode: practise a published previous-year paper in its original order. */
+  @IsOptional() @IsUUID() paperId?: string;
+  /** BOOKMARKS mode: optional bookmark folder. */
+  @IsOptional() @IsString() @MaxLength(60) folder?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(50) @IsUUID('4', { each: true }) topicIds?: string[];
   @ApiPropertyOptional({ enum: Difficulty }) @IsOptional() @IsEnum(Difficulty) difficulty?: Difficulty;
-  @IsInt() @Min(5) @Max(100) questionCount: number;
+  @IsInt() @Min(5) @Max(300) questionCount: number;
   /** Show correctness + explanation right after each answer (default true). */
   @IsOptional() @IsBoolean() instantFeedback?: boolean;
 }

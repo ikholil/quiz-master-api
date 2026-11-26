@@ -26,8 +26,15 @@ export class QuestionImportProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<{ jobId: string; submitForReview: boolean }>): Promise<unknown> {
-    const { jobId, submitForReview } = job.data;
+  async process(
+    job: Job<{ jobId: string; submitForReview: boolean; paperId?: string; skipDuplicates?: boolean }>,
+  ): Promise<unknown> {
+    const { jobId, submitForReview, paperId } = job.data;
+    const skipDuplicates = job.data.skipDuplicates ?? true;
+    const paper = paperId
+      ? await this.prisma.previousYearPaper.findUnique({ where: { id: paperId }, include: { sources: true } })
+      : null;
+    if (paperId && !paper) throw new Error('Paper not found');
     const record = await this.prisma.questionImportJob.findUnique({ where: { id: jobId } });
     if (!record || record.status === ImportStatus.COMPLETED) return;
     await this.prisma.questionImportJob.update({
@@ -79,10 +86,46 @@ export class QuestionImportProcessor extends WorkerHost {
           errors.push({ line: item.line, errors: rowErrors });
           continue;
         }
+        if (paper && (!r.questionNumber || r.questionNumber < 1)) {
+          errors.push({ line: item.line, errors: ['question_number is required for past-paper imports'] });
+          continue;
+        }
+        const dup = (
+          await this.questions.findSimilar(r.content.stem, { threshold: paper ? 0.95 : 0.9, limit: 1 })
+        )[0];
+        if (dup && paper) {
+          // Past papers often repeat earlier questions: link the existing question instead of duplicating it.
+          try {
+            await this.prisma.paperQuestion.create({
+              data: {
+                paperId: paper.id,
+                questionId: dup.id,
+                questionNumber: r.questionNumber!,
+                section: r.section,
+              },
+            });
+            imported++;
+          } catch (err) {
+            errors.push({
+              line: item.line,
+              errors: [
+                `could not attach existing question ${dup.code}: ${(err as Error).message.slice(0, 120)}`,
+              ],
+            });
+          }
+          continue;
+        }
+        if (dup && skipDuplicates) {
+          errors.push({
+            line: item.line,
+            errors: [`near-duplicate of ${dup.code} (similarity ${dup.score}); skipped`],
+          });
+          continue;
+        }
         try {
           await this.prisma.$transaction(async (tx) => {
-            let sourceId: string | undefined;
-            if (r.source) {
+            let sourceId: string | undefined = paper?.sources[0]?.id;
+            if (r.source && !sourceId) {
               const existing = await tx.questionSource.findFirst({
                 where: { type: r.source.type, title: r.source.title, year: r.source.year ?? null },
               });
@@ -108,6 +151,16 @@ export class QuestionImportProcessor extends WorkerHost {
               undefined,
               tx,
             );
+            if (paper) {
+              await tx.paperQuestion.create({
+                data: {
+                  paperId: paper.id,
+                  questionId: (created as { id: string }).id,
+                  questionNumber: r.questionNumber!,
+                  section: r.section,
+                },
+              });
+            }
             if (submitForReview) {
               const q = await tx.question.findUnique({ where: { id: (created as { id: string }).id } });
               await tx.questionVersion.update({

@@ -18,6 +18,7 @@ import { AUTO_GRADED_TYPES } from '../questions/question-content';
 import { toAnswerKey, toScoringQuestion, toStudentView } from '../questions/question-views';
 import { PUBLISHED_QUESTION, QuestionsService } from '../questions/questions.service';
 import { EntitlementsService } from '../subscriptions/entitlements.service';
+import { GamificationService } from '../gamification/gamification.service';
 import { FEATURES } from '../subscriptions/features';
 import { CreatePracticeDto, PracticeAnswerDto } from './practice.dto';
 
@@ -30,6 +31,7 @@ export class PracticeService {
     private readonly questions: QuestionsService,
     private readonly learning: LearningService,
     private readonly entitlements: EntitlementsService,
+    private readonly gamification: GamificationService,
   ) {}
 
   async create(userId: string, dto: CreatePracticeDto) {
@@ -40,6 +42,7 @@ export class PracticeService {
     const filters: Prisma.QuestionWhereInput[] = [PUBLISHED_QUESTION, { type: { in: AUTO_GRADED_TYPES } }];
     if (dto.difficulty) filters.push({ difficulty: dto.difficulty });
     let topicIds = dto.topicIds ?? [];
+    let ordered: string[] | null = null;
 
     switch (dto.mode) {
       case PracticeMode.TOPIC:
@@ -74,6 +77,28 @@ export class PracticeService {
         filters.push({ id: { in: items.map((i) => i.questionId!) } });
         break;
       }
+      case PracticeMode.PAPER: {
+        if (!dto.paperId)
+          throw AppError.badRequest('PAPER_REQUIRED', 'paperId is required for PAPER practice');
+        const paper = await this.prisma.previousYearPaper.findFirst({
+          where: { id: dto.paperId, status: 'PUBLISHED' },
+          include: { questions: { orderBy: { questionNumber: 'asc' } } },
+        });
+        if (!paper) throw AppError.notFound('Paper');
+        ordered = paper.questions.map((q) => q.questionId);
+        filters.push({ id: { in: ordered } });
+        break;
+      }
+      case PracticeMode.BOOKMARKS: {
+        const marks = await this.prisma.questionBookmark.findMany({
+          where: { userId, folder: dto.folder },
+          select: { questionId: true },
+          take: 1000,
+        });
+        if (!marks.length) throw AppError.badRequest('NO_BOOKMARKS', 'You have no bookmarked questions');
+        filters.push({ id: { in: marks.map((m) => m.questionId) } });
+        break;
+      }
       case PracticeMode.MIXED:
         if (dto.examId) filters.push({ examMappings: { some: { examId: dto.examId } } });
         if (dto.subjectId) filters.push({ subjectId: dto.subjectId });
@@ -102,13 +127,19 @@ export class PracticeService {
       ).map((r) => r.questionId),
     );
     const fresh = pool.filter((q) => !seen.has(q.id));
-    const chosen = [
-      ...sample(fresh, Math.min(count, fresh.length)),
-      ...sample(
-        pool.filter((q) => seen.has(q.id)),
-        Math.max(0, count - fresh.length),
-      ),
-    ];
+    const byId = new Map(pool.map((q) => [q.id, q]));
+    const chosen = ordered
+      ? ordered
+          .map((id) => byId.get(id))
+          .filter((q): q is (typeof pool)[number] => !!q)
+          .slice(0, count)
+      : [
+          ...sample(fresh, Math.min(count, fresh.length)),
+          ...sample(
+            pool.filter((q) => seen.has(q.id)),
+            Math.max(0, count - fresh.length),
+          ),
+        ];
     const options = await this.prisma.questionOption.findMany({
       where: { versionId: { in: chosen.map((c) => c.publishedVersionId!) } },
       select: { id: true, versionId: true },
@@ -130,7 +161,7 @@ export class PracticeService {
         instantFeedback: dto.instantFeedback ?? true,
         questionCount: chosen.length,
         answers: {
-          create: shuffle(chosen).map((q, i) => ({
+          create: (ordered ? chosen : shuffle(chosen)).map((q, i) => ({
             questionId: q.id,
             questionVersionId: q.publishedVersionId!,
             position: i + 1,
@@ -239,6 +270,7 @@ export class PracticeService {
         answeredAt: now,
       },
     ]);
+    await this.gamification.onPracticeAnswer(userId, row.id, isCorrect);
     if (updated.answeredCount >= updated.questionCount) await this.complete(userId, sessionId);
 
     return {

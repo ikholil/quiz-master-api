@@ -498,6 +498,30 @@ export class QuestionsService {
     return toAnswerKey(v);
   }
 
+  /**
+   * Near-duplicate detection with pg_trgm similarity over the latest version's stem (GIN-indexed `%` operator).
+   * Used when authoring, importing and building past papers.
+   */
+  async findSimilar(
+    stem: string,
+    opts: { threshold?: number; limit?: number; excludeQuestionId?: string; client?: Tx } = {},
+  ) {
+    const client = opts.client ?? this.prisma;
+    const exclude = opts.excludeQuestionId ?? null;
+    const rows = await client.$queryRaw<
+      Array<{ id: string; code: string; status: ContentStatus; stem: string; score: number }>
+    >`
+      SELECT q.id, q.code, q.status, v.stem, similarity(v.stem, ${stem}) AS score
+        FROM question_versions v JOIN questions q ON q."latestVersionId" = v.id
+       WHERE q."deletedAt" IS NULL AND v.stem % ${stem}
+         AND (${exclude}::uuid IS NULL OR q.id <> ${exclude}::uuid)
+       ORDER BY score DESC
+       LIMIT ${opts.limit ?? 5}`;
+    return rows
+      .filter((r) => Number(r.score) >= (opts.threshold ?? 0.6))
+      .map((r) => ({ ...r, score: Math.round(Number(r.score) * 1000) / 1000 }));
+  }
+
   // ───────── Reports ─────────
 
   async report(questionId: string, dto: CreateReportDto, userId: string) {

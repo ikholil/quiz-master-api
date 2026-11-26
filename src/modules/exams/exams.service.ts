@@ -13,7 +13,6 @@ import {
   CreateExamDto,
   ExamQueryDto,
   NoticeDto,
-  PaperDto,
   StageDto,
   UpdateCategoryDto,
   UpdateExamDto,
@@ -155,11 +154,7 @@ export class ExamsService {
     const papers = await this.prisma.previousYearPaper.findMany({
       where: { examId, status: admin ? undefined : PublishStatus.PUBLISHED },
       orderBy: { year: 'desc' },
-      include: {
-        sources: {
-          select: { _count: { select: { questions: { where: { status: 'PUBLISHED', deletedAt: null } } } } },
-        },
-      },
+      include: { _count: { select: { questions: true } } },
     });
     return papers.map((p) => ({
       id: p.id,
@@ -167,7 +162,8 @@ export class ExamsService {
       title: p.title,
       sourceReference: p.sourceReference,
       fileId: p.fileId,
-      questionCount: p.sources.reduce((n, s) => n + s._count.questions, 0),
+      questionCount: p._count.questions,
+      verificationStatus: p.verificationStatus,
     }));
   }
 
@@ -380,33 +376,6 @@ export class ExamsService {
       ctx,
     });
     return updated;
-  }
-
-  async createPaper(examId: string, dto: PaperDto, actorId: string, ctx: RequestContext) {
-    await this.assertExam(examId, true);
-    const paper = await this.prisma.previousYearPaper.create({ data: { ...dto, examId } });
-    await this.audit.record({
-      actorId,
-      action: 'catalog.paper.create',
-      entityType: 'PreviousYearPaper',
-      entityId: paper.id,
-      after: dto,
-      ctx,
-    });
-    return paper;
-  }
-
-  async updatePaper(id: string, dto: Partial<PaperDto>, actorId: string, ctx: RequestContext) {
-    const paper = await this.prisma.previousYearPaper.update({ where: { id }, data: dto });
-    await this.audit.record({
-      actorId,
-      action: 'catalog.paper.update',
-      entityType: 'PreviousYearPaper',
-      entityId: id,
-      after: dto,
-      ctx,
-    });
-    return paper;
   }
 
   private async assertExam(examId: string, admin = false) {

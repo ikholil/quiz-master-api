@@ -135,16 +135,14 @@ export class SyllabusService {
         sn.chapters.set(c.id, { id: c.id, name: c.name, nameBn: c.nameBn, sort: c.sortOrder, topics: [] });
       const marks = decToNumber(m.marks);
       sn.totalMarks += marks ?? 0;
-      sn.chapters
-        .get(c.id)!
-        .topics.push({
-          id: t.id,
-          name: t.name,
-          nameBn: t.nameBn,
-          weight: decToNumber(m.weight) ?? 0,
-          marks,
-          sort: t.sortOrder,
-        });
+      sn.chapters.get(c.id)!.topics.push({
+        id: t.id,
+        name: t.name,
+        nameBn: t.nameBn,
+        weight: decToNumber(m.weight) ?? 0,
+        marks,
+        sort: t.sortOrder,
+      });
     }
     const bySort = <T extends { sort: number; name: string }>(a: T, b: T) =>
       a.sort - b.sort || a.name.localeCompare(b.name);

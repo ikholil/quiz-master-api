@@ -4,6 +4,7 @@ import { DataExportStatus } from '@prisma/client';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JOBS, QUEUES, workers } from '../../queue/queue.constants';
+import { ExamCalendarModule, ExamCalendarService } from '../exam-calendar/exam-calendar.module';
 import { FilesService } from '../files/files.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { UsersModule } from '../users/users.module';
@@ -75,6 +76,7 @@ export class MaintenanceProcessor extends WorkerHost {
     private readonly users: UsersService,
     private readonly subscriptions: SubscriptionsService,
     private readonly cleanup: CleanupService,
+    private readonly calendar: ExamCalendarService,
   ) {
     super();
   }
@@ -87,6 +89,8 @@ export class MaintenanceProcessor extends WorkerHost {
         return this.subscriptions.expireDue();
       case JOBS.RENEWAL_REMINDERS:
         return this.subscriptions.sendRenewalReminders();
+      case JOBS.EXAM_EVENT_REMINDERS:
+        return this.calendar.sendReminders();
       case JOBS.CLEANUP:
         return this.cleanup.run();
       default:
@@ -96,7 +100,7 @@ export class MaintenanceProcessor extends WorkerHost {
 }
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, ExamCalendarModule],
   providers: [CleanupService, ...workers(MaintenanceProcessor)],
   exports: [CleanupService],
 })

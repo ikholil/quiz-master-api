@@ -372,13 +372,11 @@ export class AssistantService {
     for (const item of items.slice(0, data.count)) {
       const content = {
         stem: String(item.stem ?? ''),
-        options: (item.options ?? [])
-          .slice(0, 8)
-          .map((o) => ({
-            key: String(o.key).toUpperCase(),
-            text: String(o.text ?? ''),
-            isCorrect: String(o.key).toUpperCase() === String(item.correct).toUpperCase(),
-          })),
+        options: (item.options ?? []).slice(0, 8).map((o) => ({
+          key: String(o.key).toUpperCase(),
+          text: String(o.text ?? ''),
+          isCorrect: String(o.key).toUpperCase() === String(item.correct).toUpperCase(),
+        })),
         explanation: item.explanation ? { content: String(item.explanation) } : undefined,
       };
       if (validateQuestionContent(QuestionType.SINGLE_CHOICE, content).length) {

@@ -27,6 +27,10 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
+import { ExamCalendarModule } from './modules/exam-calendar/exam-calendar.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
+import { PapersModule } from './modules/papers/papers.module';
+import { QuestionAnalyticsModule } from './modules/question-analytics/question-analytics.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { LearningModule } from './modules/learning/learning.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
@@ -130,6 +134,10 @@ import { UsersModule } from './modules/users/users.module';
     SupportModule,
     AnalyticsModule,
     MaintenanceModule,
+    GamificationModule,
+    PapersModule,
+    QuestionAnalyticsModule,
+    ExamCalendarModule,
     HealthModule,
   ],
   providers: [

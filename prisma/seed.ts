@@ -21,6 +21,7 @@ import {
 } from '@prisma/client';
 import { randomBytes, scrypt } from 'node:crypto';
 import { ALL_PERMISSIONS, SYSTEM_ROLES } from '../src/modules/rbac/permissions';
+import { loadQuestionBank } from './question-bank/loader';
 
 const prisma = new PrismaClient();
 
@@ -737,6 +738,16 @@ async function main() {
         createdById: editor.id,
       },
     });
+  }
+
+  // Original practice bank (~2,700 computed / curated questions) + full-length practice mocks for each exam profile.
+  if (process.env.SEED_QUESTION_BANK !== 'false') {
+    const r = await loadQuestionBank(prisma, {
+      status: process.env.NODE_ENV === 'production' ? 'review' : 'published',
+    });
+    console.log(
+      `Practice bank: ${r.inserted} added, ${r.skipped} already present, ${r.mocks} practice mocks created.`,
+    );
   }
 
   console.log(`Seed complete: ${all.length} demonstration questions, 1 demo mock, ${plans.length} plans.`);

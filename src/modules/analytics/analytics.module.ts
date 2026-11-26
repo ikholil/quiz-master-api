@@ -12,6 +12,10 @@ import type { AuthUser } from '../../common/types/auth-user';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JOBS, QUEUES, workers } from '../../queue/queue.constants';
 import { PERMISSIONS } from '../rbac/permissions';
+import {
+  QuestionAnalyticsModule,
+  QuestionAnalyticsService,
+} from '../question-analytics/question-analytics.module';
 
 class StudentAnalyticsQuery {
   @IsOptional() @IsUUID() examId?: string;
@@ -222,10 +226,14 @@ export class AnalyticsController {
 
 @Processor(QUEUES.ANALYTICS, { concurrency: 1 })
 export class AnalyticsProcessor extends WorkerHost {
-  constructor(private readonly analytics: AnalyticsService) {
+  constructor(
+    private readonly analytics: AnalyticsService,
+    private readonly items: QuestionAnalyticsService,
+  ) {
     super();
   }
   async process(job: Job): Promise<unknown> {
+    if (job.name === JOBS.ITEM_ANALYSIS) return this.items.run();
     if (job.name === JOBS.AGGREGATE_DAILY)
       return this.analytics.aggregateDay(job.data?.date ? parseIsoDate(job.data.date as string) : undefined);
     return undefined;
@@ -233,6 +241,7 @@ export class AnalyticsProcessor extends WorkerHost {
 }
 
 @Module({
+  imports: [QuestionAnalyticsModule],
   controllers: [AnalyticsController],
   providers: [AnalyticsService, ...workers(AnalyticsProcessor)],
   exports: [AnalyticsService],

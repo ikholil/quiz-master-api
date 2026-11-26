@@ -22,6 +22,7 @@ import { PrismaService, Tx } from '../../prisma/prisma.service';
 import { JOBS, QUEUES } from '../../queue/queue.constants';
 import { AuditService } from '../audit/audit.service';
 import { QuestionSelector } from '../mock-exams/question-selector';
+import { GamificationService } from '../gamification/gamification.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MANUAL_TYPES } from '../questions/question-content';
 import { toAnswerKey, toScoringQuestion, toStudentView } from '../questions/question-views';
@@ -76,6 +77,7 @@ export class AttemptsService {
     private readonly settings: SystemConfigService,
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
+    private readonly gamification: GamificationService,
     @InjectQueue(QUEUES.ATTEMPTS) private readonly attemptsQueue: Queue,
     @InjectQueue(QUEUES.LEARNING) private readonly learningQueue: Queue,
   ) {}
@@ -433,6 +435,7 @@ export class AttemptsService {
           { source: 'attempt', id: attemptId, userId: attempt.userId },
           { jobId: `mastery-attempt-${attemptId}` },
         );
+        await this.gamification.onAttemptFinalized(attemptId);
         const rules = attempt.rulesSnapshot as unknown as RulesSnapshot;
         await this.notifications.notify(attempt.userId, {
           type: 'attempt.submitted',

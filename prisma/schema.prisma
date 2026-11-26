@@ -166,6 +166,30 @@ enum PracticeMode {
   WEAK_TOPICS
   WRONG_ANSWERS
   MIXED
+  PAPER
+  BOOKMARKS
+}
+
+enum PaperVerification {
+  UNVERIFIED
+  VERIFIED
+  DISPUTED
+}
+
+enum AnswerKeyType {
+  OFFICIAL
+  EXPERT
+  NONE
+}
+
+enum ExamEventType {
+  CIRCULAR
+  APPLICATION_START
+  APPLICATION_DEADLINE
+  ADMIT_CARD
+  EXAM_DATE
+  RESULT
+  OTHER
 }
 
 enum PracticeStatus {
@@ -370,32 +394,37 @@ model User {
   updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
   deletedAt       DateTime?  @db.Timestamptz(3)
 
-  profile              Profile?
-  roles                UserRole[]
-  sessions             Session[]
-  examBookmarks        ExamBookmark[]
-  practiceSessions     PracticeSession[]
-  attempts             ExamAttempt[]
-  topicMastery         TopicMastery[]
-  studyPlans           StudyPlan[]
-  revisionSchedules    RevisionSchedule[]
-  flashcards           Flashcard[]
-  aiConversations      AiConversation[]
-  aiUsage              AiUsageRecord[]
-  enrollments          Enrollment[]
-  subscriptions        UserSubscription[]
-  entitlements         Entitlement[]
-  payments             Payment[]
-  notifications        Notification[]
-  deviceTokens         DeviceToken[]
-  discussions          Discussion[]
-  discussionReplies    DiscussionReply[]
-  supportTickets       SupportTicket[]
-  questionReports      QuestionReport[]
-  files                StoredFile[]
-  dataExports          DataExportRequest[]
-  lessonProgress       LessonProgress[]
-  communityRestriction CommunityRestriction?
+  profile               Profile?
+  roles                 UserRole[]
+  sessions              Session[]
+  examBookmarks         ExamBookmark[]
+  practiceSessions      PracticeSession[]
+  attempts              ExamAttempt[]
+  topicMastery          TopicMastery[]
+  studyPlans            StudyPlan[]
+  revisionSchedules     RevisionSchedule[]
+  flashcards            Flashcard[]
+  aiConversations       AiConversation[]
+  aiUsage               AiUsageRecord[]
+  enrollments           Enrollment[]
+  subscriptions         UserSubscription[]
+  entitlements          Entitlement[]
+  payments              Payment[]
+  notifications         Notification[]
+  deviceTokens          DeviceToken[]
+  discussions           Discussion[]
+  discussionReplies     DiscussionReply[]
+  supportTickets        SupportTicket[]
+  questionReports       QuestionReport[]
+  files                 StoredFile[]
+  dataExports           DataExportRequest[]
+  lessonProgress        LessonProgress[]
+  communityRestriction  CommunityRestriction?
+  questionBookmarks     QuestionBookmark[]
+  stats                 UserStats?
+  xpEvents              XpEvent[]
+  achievements          UserAchievement[]
+  dailyChallengeAnswers DailyChallengeAnswer[]
 
   @@index([status])
   @@map("users")
@@ -634,6 +663,7 @@ model Exam {
   courses          Course[]
   materials        LearningMaterial[]
   discussions      Discussion[]
+  events           ExamEvent[]
 
   @@index([categoryId, status])
   @@map("exams")
@@ -696,21 +726,76 @@ model ExamNotice {
 }
 
 model PreviousYearPaper {
-  id              String        @id @default(uuid()) @db.Uuid
-  examId          String        @db.Uuid
-  year            Int
-  title           String
-  sourceReference String?
-  fileId          String?       @db.Uuid
-  status          PublishStatus @default(DRAFT)
-  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+  id                 String            @id @default(uuid()) @db.Uuid
+  examId             String            @db.Uuid
+  stageId            String?           @db.Uuid
+  year               Int
+  title              String
+  sourceReference    String?
+  fileId             String?           @db.Uuid
+  status             PublishStatus     @default(DRAFT)
+  heldOn             DateTime?         @db.Date
+  durationMinutes    Int?
+  totalMarks         Decimal?          @db.Decimal(8, 2)
+  negativeMarking    Decimal?          @db.Decimal(6, 2)
+  /// Provenance: a paper is only presented as official after a staff member verified it against evidence.
+  verificationStatus PaperVerification @default(UNVERIFIED)
+  answerKeyType      AnswerKeyType     @default(NONE)
+  evidenceUrl        String?
+  evidenceFileId     String?           @db.Uuid
+  verifiedById       String?           @db.Uuid
+  verifiedAt         DateTime?         @db.Timestamptz(3)
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
 
-  exam    Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
-  sources QuestionSource[]
+  exam      Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
+  sources   QuestionSource[]
+  questions PaperQuestion[]
 
   @@index([examId, year])
   @@map("previous_year_papers")
+}
+
+/// Ordered membership of a question in a past paper (question number as printed).
+model PaperQuestion {
+  paperId        String   @db.Uuid
+  questionId     String   @db.Uuid
+  questionNumber Int
+  section        String?
+  marks          Decimal? @db.Decimal(8, 2)
+  /// Set when the published key is disputed (e.g. the authority later corrected it).
+  answerDisputed Boolean  @default(false)
+  disputeNote    String?
+
+  paper    PreviousYearPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  question Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([paperId, questionId])
+  @@unique([paperId, questionNumber])
+  @@index([questionId])
+  @@map("paper_questions")
+}
+
+/// Important dates for an exam (entered by staff from official sources; never AI-generated).
+model ExamEvent {
+  id          String        @id @default(uuid()) @db.Uuid
+  examId      String        @db.Uuid
+  type        ExamEventType
+  title       String
+  startsAt    DateTime      @db.Timestamptz(3)
+  endsAt      DateTime?     @db.Timestamptz(3)
+  sourceUrl   String?
+  noticeId    String?       @db.Uuid
+  status      PublishStatus @default(DRAFT)
+  createdById String?       @db.Uuid
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId, startsAt])
+  @@index([status, startsAt])
+  @@map("exam_events")
 }
 
 // ─────────────────────── Syllabus & curriculum ───────────────────────
@@ -863,27 +948,36 @@ model QuestionSource {
 }
 
 model Question {
-  id                 String        @id @default(uuid()) @db.Uuid
-  code               String        @unique
-  type               QuestionType
-  difficulty         Difficulty    @default(MEDIUM)
-  status             ContentStatus @default(DRAFT)
-  subjectId          String        @db.Uuid
-  topicId            String?       @db.Uuid
-  passageId          String?       @db.Uuid
-  sourceId           String?       @db.Uuid
-  latestVersionId    String?       @unique @db.Uuid
-  publishedVersionId String?       @unique @db.Uuid
-  isDemo             Boolean       @default(false)
-  aiGenerated        Boolean       @default(false)
-  timesAnswered      Int           @default(0)
-  timesCorrect       Int           @default(0)
-  avgTimeMs          Int?
-  createdById        String?       @db.Uuid
-  publishedAt        DateTime?     @db.Timestamptz(3)
-  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
-  deletedAt          DateTime?     @db.Timestamptz(3)
+  id                   String        @id @default(uuid()) @db.Uuid
+  code                 String        @unique
+  type                 QuestionType
+  difficulty           Difficulty    @default(MEDIUM)
+  status               ContentStatus @default(DRAFT)
+  subjectId            String        @db.Uuid
+  topicId              String?       @db.Uuid
+  passageId            String?       @db.Uuid
+  sourceId             String?       @db.Uuid
+  latestVersionId      String?       @unique @db.Uuid
+  publishedVersionId   String?       @unique @db.Uuid
+  isDemo               Boolean       @default(false)
+  aiGenerated          Boolean       @default(false)
+  timesAnswered        Int           @default(0)
+  timesCorrect         Int           @default(0)
+  avgTimeMs            Int?
+  /// Item analysis (computed from final exam results): proportion correct and upper–lower discrimination index.
+  pValue               Float?
+  discrimination       Float?
+  calibratedDifficulty Difficulty?
+  qualityFlags         String[]      @default([])
+  statsSampleSize      Int           @default(0)
+  statsUpdatedAt       DateTime?     @db.Timestamptz(3)
+  /// Stable content fingerprint used for idempotent bulk loading.
+  contentHash          String?       @unique
+  createdById          String?       @db.Uuid
+  publishedAt          DateTime?     @db.Timestamptz(3)
+  createdAt            DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime      @updatedAt @db.Timestamptz(3)
+  deletedAt            DateTime?     @db.Timestamptz(3)
 
   subject          Subject               @relation(fields: [subjectId], references: [id])
   topic            Topic?                @relation(fields: [topicId], references: [id])
@@ -896,6 +990,8 @@ model Question {
   topics           QuestionTopic[]
   examMappings     ExamQuestionMapping[]
   reports          QuestionReport[]
+  paperQuestions   PaperQuestion[]
+  bookmarks        QuestionBookmark[]
 
   @@index([status, subjectId, topicId, difficulty])
   @@index([topicId])
@@ -1998,4 +2094,94 @@ model AnalyticsDailyMetric {
 
   @@unique([date, metric, dimension])
   @@map("analytics_daily_metrics")
+}
+
+// ─────────────────────── Bookmarks & gamification ───────────────────────
+
+model QuestionBookmark {
+  userId     String   @db.Uuid
+  questionId String   @db.Uuid
+  note       String?
+  folder     String   @default("default")
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, questionId])
+  @@index([userId, folder])
+  @@map("question_bookmarks")
+}
+
+model UserStats {
+  userId            String    @id @db.Uuid
+  xp                Int       @default(0)
+  level             Int       @default(1)
+  currentStreak     Int       @default(0)
+  longestStreak     Int       @default(0)
+  lastActiveDate    DateTime? @db.Date
+  questionsAnswered Int       @default(0)
+  correctAnswers    Int       @default(0)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([xp])
+  @@map("user_stats")
+}
+
+/// Append-only XP ledger; (userId, reason, refId) is unique so every award is idempotent.
+model XpEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  amount    Int
+  reason    String
+  refId     String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reason, refId])
+  @@index([createdAt, userId])
+  @@map("xp_events")
+}
+
+model UserAchievement {
+  userId         String   @db.Uuid
+  achievementKey String
+  earnedAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, achievementKey])
+  @@map("user_achievements")
+}
+
+/// One question per Dhaka calendar day, the same for every student.
+model DailyChallenge {
+  date              DateTime @id @db.Date
+  questionId        String   @db.Uuid
+  questionVersionId String   @db.Uuid
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  answers DailyChallengeAnswer[]
+
+  @@map("daily_challenges")
+}
+
+model DailyChallengeAnswer {
+  userId            String   @db.Uuid
+  date              DateTime @db.Date
+  selectedOptionIds String[] @db.Uuid
+  isCorrect         Boolean
+  timeSpentMs       Int?
+  answeredAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge DailyChallenge @relation(fields: [date], references: [date], onDelete: Cascade)
+
+  @@id([userId, date])
+  @@index([date, isCorrect, timeSpentMs])
+  @@map("daily_challenge_answers")
 }

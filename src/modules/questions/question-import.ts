@@ -18,6 +18,9 @@ export interface ImportRow {
   isDemo: boolean;
   source?: { type: QuestionSourceType; title: string; year?: number };
   content: ContentInput;
+  /** Past-paper imports: printed question number and optional section. */
+  questionNumber?: number;
+  section?: string;
 }
 
 export interface ParsedImport {
@@ -119,6 +122,11 @@ export function parseImportRecord(
       isDemo,
       source,
       content,
+      questionNumber:
+        get('question_number') && /^\d+$/.test(get('question_number')!)
+          ? Number(get('question_number'))
+          : undefined,
+      section: get('section'),
     },
   };
 }

@@ -24,7 +24,10 @@
     "test": "jest --config jest.config.ts --selectProjects unit",
     "test:integration": "jest --config jest.config.ts --selectProjects integration --runInBand",
     "test:all": "jest --config jest.config.ts --runInBand",
-    "test:cov": "jest --config jest.config.ts --runInBand --coverage"
+    "test:cov": "jest --config jest.config.ts --runInBand --coverage",
+    "bank:load": "ts-node --transpile-only prisma/load-question-bank.ts",
+    "bank:summary": "ts-node --transpile-only prisma/scripts/bank-summary.ts",
+    "bank:sample": "ts-node --transpile-only prisma/scripts/bank-sample.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"

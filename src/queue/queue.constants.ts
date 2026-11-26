@@ -35,6 +35,8 @@ export const JOBS = {
   RENEWAL_REMINDERS: 'renewal-reminders',
   DATA_EXPORT: 'data-export',
   CLEANUP: 'cleanup',
+  ITEM_ANALYSIS: 'item-analysis',
+  EXAM_EVENT_REMINDERS: 'exam-event-reminders',
 } as const;
 
 export const DEFAULT_JOB_OPTIONS = {

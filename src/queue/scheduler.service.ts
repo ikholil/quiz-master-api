@@ -33,10 +33,12 @@ export class SchedulerService implements OnApplicationBootstrap {
       [this.maintenance, JOBS.EXPIRE_SUBSCRIPTIONS, '*/10 * * * *'],
       [this.maintenance, JOBS.RENEWAL_REMINDERS, '0 10 * * *'],
       [this.maintenance, JOBS.CLEANUP, '15 3 * * *'],
+      [this.analytics, JOBS.ITEM_ANALYSIS, '45 1 * * *'],
+      [this.maintenance, JOBS.EXAM_EVENT_REMINDERS, '0 9 * * *'],
     ];
     try {
       for (const [queue, name, pattern] of schedules) {
-        await queue.upsertJobScheduler(`cron:${name}`, { pattern, tz }, { name, data: {} });
+        await queue.upsertJobScheduler(`cron-${name}`, { pattern, tz }, { name, data: {} });
       }
       this.logger.log(`Registered ${schedules.length} scheduled jobs`);
     } catch (err) {
