@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: quiz
+          POSTGRES_PASSWORD: quiz
+          POSTGRES_DB: quiz_master_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U quiz" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://quiz:quiz@localhost:5432/quiz_master_test?schema=public
+      TEST_DATABASE_URL: postgresql://quiz:quiz@localhost:5432/quiz_master_test?schema=public
+      TEST_REDIS_URL: redis://localhost:6379/15
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma validate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - name: OpenAPI contract is up to date
+        run: |
+          npm run openapi:generate
+          git diff --exit-code openapi/openapi.json || (echo "::error::openapi/openapi.json is stale — run npm run openapi:generate and commit" && exit 1)
+      - name: Migrations match the schema
+        run: |
+          PGPASSWORD=quiz psql -h localhost -U quiz -d quiz_master_test -c 'CREATE DATABASE quiz_shadow'
+          # Custom SQL indexes (trigram, HNSW) live only in migrations, so their DROP lines are expected.
+          drift=$(npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
+            --shadow-database-url "postgresql://quiz:quiz@localhost:5432/quiz_shadow" --script \
+            | grep -vE '^--|^\s*$|^DROP INDEX "(question_versions_stem_trgm_idx|discussions_title_trgm_idx|chunk_embeddings_hnsw_idx)";$' || true)
+          if [ -n "$drift" ]; then echo "::error::Schema drift — create a migration"; echo "$drift"; exit 1; fi
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: quiz-master-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,104 @@
+# Local / single-host stack. For production use managed PostgreSQL + Redis and see docs/DEPLOYMENT.md.
+name: quiz-master
+
+x-app: &app
+  build: .
+  image: quiz-master-api:local
+  env_file: .env.docker
+  environment:
+    DATABASE_URL: postgresql://quiz:quiz@postgres:5432/quiz_master?schema=public
+    REDIS_URL: redis://redis:6379/0
+    STORAGE_DRIVER: s3
+    S3_ENDPOINT: http://minio:9000
+    S3_BUCKET: quiz-master
+    S3_REGION: us-east-1
+    S3_ACCESS_KEY_ID: minioadmin
+    S3_SECRET_ACCESS_KEY: minioadmin
+    S3_FORCE_PATH_STYLE: "true"
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    migrate: { condition: service_completed_successfully }
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: quiz
+      POSTGRES_PASSWORD: quiz
+      POSTGRES_DB: quiz_master
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quiz -d quiz_master"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address :9001
+    environment: { MINIO_ROOT_USER: minioadmin, MINIO_ROOT_PASSWORD: minioadmin }
+    volumes: [miniodata:/data]
+    ports: ["9000:9000", "9001:9001"]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on: [minio]
+    entrypoint: ["/bin/sh", "-c", "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done; mc mb -p local/quiz-master"]
+
+  migrate:
+    build: .
+    image: quiz-master-api:local
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://quiz:quiz@postgres:5432/quiz_master?schema=public
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # HTTP API without background workers (scale horizontally).
+  api:
+    <<: *app
+    environment:
+      DATABASE_URL: postgresql://quiz:quiz@postgres:5432/quiz_master?schema=public
+      REDIS_URL: redis://redis:6379/0
+      WORKERS_ENABLED: "false"
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: quiz-master
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: "true"
+    ports: ["3000:3000"]
+
+  # BullMQ workers + schedulers (notifications, imports, indexing, AI, payments, analytics…).
+  worker:
+    <<: *app
+    environment:
+      DATABASE_URL: postgresql://quiz:quiz@postgres:5432/quiz_master?schema=public
+      REDIS_URL: redis://redis:6379/0
+      WORKERS_ENABLED: "true"
+      PORT: "3001"
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: quiz-master
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: "true"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
