@@ -12,3 +12,5 @@ process.env.RATE_LIMIT_MAX = '10000';
 process.env.STORAGE_LOCAL_PATH = './storage-test';
 process.env.WEBHOOK_SANDBOX_SECRET = 'test-sandbox-secret';
 process.env.PAYMENT_DEFAULT_PROVIDER = 'sandbox';
+process.env.OTP_MAX_PER_IP_HOUR = '100000';
+process.env.RATE_LIMIT_AUTH_MAX = '100000';

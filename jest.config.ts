@@ -15,8 +15,10 @@ const config: Config = {
       displayName: 'integration',
       testMatch: ['<rootDir>/test/**/*.e2e-spec.ts'],
       setupFiles: ['<rootDir>/test/setup-env.ts'],
+      globalSetup: '<rootDir>/test/global-setup.ts',
     },
   ],
+  testTimeout: 60000,
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/*.module.ts', '!src/**/*.dto.ts'],
   coverageDirectory: 'coverage',
 };

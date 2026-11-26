@@ -82,7 +82,7 @@ export class AssistantService {
       this.prisma.aiMessage.create({ data: { conversationId, role: AiMessageRole.ASSISTANT, content: '', status: AiMessageStatus.PENDING } }),
       this.prisma.aiConversation.update({ where: { id: conversationId }, data: { title: conv.title ?? dto.content.slice(0, 80), updatedAt: new Date() } }),
     ]);
-    await this.queue.add(JOBS.AI_REPLY, { messageId: assistantMsg.id }, { jobId: `ai-reply:${assistantMsg.id}`, attempts: 2 });
+    await this.queue.add(JOBS.AI_REPLY, { messageId: assistantMsg.id }, { jobId: `ai-reply-${assistantMsg.id}`, attempts: 2 });
     return { userMessageId: userMsg.id, assistantMessageId: assistantMsg.id, status: AiMessageStatus.PENDING, remainingToday: usage.remaining === null ? null : usage.remaining - 1 };
   }
 

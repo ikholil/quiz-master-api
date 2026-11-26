@@ -185,7 +185,7 @@ export class AttemptsService {
     }
 
     const grace = await this.graceMs();
-    await this.attemptsQueue.add(JOBS.AUTO_SUBMIT_ATTEMPT, { attemptId }, { jobId: `auto-submit:${attemptId}`, delay: Math.max(0, expiresAt.getTime() - Date.now() + grace) });
+    await this.attemptsQueue.add(JOBS.AUTO_SUBMIT_ATTEMPT, { attemptId }, { jobId: `auto-submit-${attemptId}`, delay: Math.max(0, expiresAt.getTime() - Date.now() + grace) });
     return this.getState(user.id, attemptId);
   }
 
@@ -323,10 +323,10 @@ export class AttemptsService {
       { timeout: 20000, isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     );
     if (done) {
-      await this.attemptsQueue.remove(`auto-submit:${attemptId}`).catch(() => undefined);
+      await this.attemptsQueue.remove(`auto-submit-${attemptId}`).catch(() => undefined);
       const attempt = await this.prisma.examAttempt.findUnique({ where: { id: attemptId }, include: { result: true } });
       if (attempt) {
-        await this.learningQueue.add(JOBS.UPDATE_MASTERY, { source: 'attempt', id: attemptId, userId: attempt.userId }, { jobId: `mastery:attempt:${attemptId}` });
+        await this.learningQueue.add(JOBS.UPDATE_MASTERY, { source: 'attempt', id: attemptId, userId: attempt.userId }, { jobId: `mastery-attempt-${attemptId}` });
         const rules = attempt.rulesSnapshot as unknown as RulesSnapshot;
         await this.notifications.notify(attempt.userId, {
           type: 'attempt.submitted',

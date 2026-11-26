@@ -75,7 +75,7 @@ export class KnowledgeService {
       this.prisma.knowledgeSource.update({ where: { id }, data: { status: KnowledgeSourceStatus.APPROVED, approvedById: actorId, approvedAt: new Date(), error: null } }),
       this.prisma.contentReview.create({ data: { entityType: ReviewEntityType.KNOWLEDGE_SOURCE, entityId: id, reviewerId: actorId, decision: 'APPROVED' } }),
     ]);
-    await this.queue.add(JOBS.INDEX_SOURCE, { sourceId: id }, { jobId: `index:${id}:${Date.now()}` });
+    await this.queue.add(JOBS.INDEX_SOURCE, { sourceId: id }, { jobId: `index-${id}-${Date.now()}` });
     await this.audit.record({ actorId, action: 'knowledge.approve', entityType: 'KnowledgeSource', entityId: id, ctx });
     return { id, status: KnowledgeSourceStatus.APPROVED, indexing: 'queued' };
   }
@@ -83,7 +83,7 @@ export class KnowledgeService {
   async reindex(id: string, actorId: string, ctx: RequestContext) {
     const s = await this.get(id);
     if (!s.approvedAt) throw AppError.conflict('NOT_APPROVED', 'Approve the source first');
-    await this.queue.add(JOBS.INDEX_SOURCE, { sourceId: id }, { jobId: `index:${id}:${Date.now()}` });
+    await this.queue.add(JOBS.INDEX_SOURCE, { sourceId: id }, { jobId: `index-${id}-${Date.now()}` });
     await this.audit.record({ actorId, action: 'knowledge.reindex', entityType: 'KnowledgeSource', entityId: id, ctx });
     return { id, indexing: 'queued' };
   }

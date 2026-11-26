@@ -11,7 +11,7 @@ import { JOBS, QUEUES } from '../../queue/queue.constants';
 import { REDIS } from '../../redis/redis.module';
 
 const MAX_SENDS_PER_IDENTIFIER_PER_HOUR = 5;
-const MAX_SENDS_PER_IP_PER_HOUR = 30;
+const MAX_SENDS_PER_IP_PER_HOUR = Number(process.env.OTP_MAX_PER_IP_HOUR ?? 30);
 
 export interface OtpRequestResult {
   /** Seconds until the client may request another code. */

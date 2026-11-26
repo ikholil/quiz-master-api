@@ -395,7 +395,7 @@ export class QuestionsService {
     const file = await this.prisma.storedFile.findUnique({ where: { id: dto.fileId } });
     if (!file || file.purpose !== 'QUESTION_IMPORT') throw AppError.badRequest('INVALID_FILE', 'Upload the file with purpose QUESTION_IMPORT first');
     const job = await this.prisma.questionImportJob.create({ data: { fileId: dto.fileId, format: dto.format, createdById: user.id } });
-    await this.importQueue.add(JOBS.IMPORT_QUESTIONS, { jobId: job.id, submitForReview: !!dto.submitForReview }, { jobId: `import:${job.id}`, attempts: 1 });
+    await this.importQueue.add(JOBS.IMPORT_QUESTIONS, { jobId: job.id, submitForReview: !!dto.submitForReview }, { jobId: `import-${job.id}`, attempts: 1 });
     await this.audit.record({ actorId: user.id, action: 'question.import.start', entityType: 'QuestionImportJob', entityId: job.id, ctx });
     return job;
   }

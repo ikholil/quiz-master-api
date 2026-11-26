@@ -20,7 +20,8 @@ import {
 } from './auth.dto';
 import { AuthService } from './auth.service';
 
-const AUTH_THROTTLE = { default: { limit: 10, ttl: 60_000 } };
+// Per-IP limit for credential endpoints (RATE_LIMIT_AUTH_MAX, default 10/min), resolved at request time.
+const AUTH_THROTTLE = { default: { limit: () => Number(process.env.RATE_LIMIT_AUTH_MAX ?? 10), ttl: 60_000 } };
 
 @ApiTags('Auth')
 @Controller('auth')

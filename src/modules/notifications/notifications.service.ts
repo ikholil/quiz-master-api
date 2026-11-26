@@ -56,7 +56,7 @@ export class NotificationsService {
       },
     });
     if (channels.some((c) => c !== NotificationChannel.IN_APP)) {
-      await this.queue.add(JOBS.DELIVER_NOTIFICATION, { notificationId: n.id }, { jobId: `notif:${n.id}` });
+      await this.queue.add(JOBS.DELIVER_NOTIFICATION, { notificationId: n.id }, { jobId: `notif-${n.id}` });
     }
     return n.id;
   }

@@ -144,7 +144,7 @@ export class PaymentsService {
       if ((err as { code?: string }).code === 'P2002') return { received: true, duplicate: true };
       throw err;
     }
-    await this.queue.add(JOBS.PROCESS_WEBHOOK, { paymentId: payment.id, provider: providerName, eventId: event.eventId }, { jobId: `webhook:${providerName}:${event.eventId}` });
+    await this.queue.add(JOBS.PROCESS_WEBHOOK, { paymentId: payment.id, provider: providerName, eventId: event.eventId }, { jobId: `webhook-${providerName}-${event.eventId}`.replace(/[^A-Za-z0-9_-]/g, "-") });
     return { received: true, duplicate: false };
   }
 

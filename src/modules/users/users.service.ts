@@ -144,7 +144,7 @@ export class UsersService {
     const todayCount = await this.prisma.dataExportRequest.count({ where: { userId, createdAt: { gte: dayAgo } } });
     if (todayCount >= 3) throw AppError.tooMany('Data export can be requested at most 3 times per day');
     const req = await this.prisma.dataExportRequest.create({ data: { userId } });
-    await this.maintenance.add(JOBS.DATA_EXPORT, { requestId: req.id }, { jobId: `export:${req.id}` });
+    await this.maintenance.add(JOBS.DATA_EXPORT, { requestId: req.id }, { jobId: `export-${req.id}` });
     return this.exportView(req);
   }
 
