@@ -1,12 +1,29 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Body, Controller, Get, Global, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Global,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Job } from 'bullmq';
 import { AdminOnly, CurrentUser, ReqContext } from '../../common/decorators/auth.decorators';
 import type { AuthUser, RequestContext } from '../../common/types/auth-user';
 import { JOBS, QUEUES, workers } from '../../queue/queue.constants';
 import { PERMISSIONS } from '../rbac/permissions';
-import { CreateKnowledgeSourceDto, KnowledgeQueryDto, RetrievalTestDto, UpdateKnowledgeSourceDto } from './knowledge.dto';
+import {
+  CreateKnowledgeSourceDto,
+  KnowledgeQueryDto,
+  RetrievalTestDto,
+  UpdateKnowledgeSourceDto,
+} from './knowledge.dto';
 import { KnowledgeService } from './knowledge.service';
 
 @ApiTags('Admin · AI knowledge base')
@@ -22,7 +39,11 @@ export class AdminKnowledgeController {
 
   @Post()
   @AdminOnly(PERMISSIONS.KNOWLEDGE_MANAGE)
-  create(@Body() dto: CreateKnowledgeSourceDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  create(
+    @Body() dto: CreateKnowledgeSourceDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.knowledge.create(dto, u.id, ctx);
   }
 
@@ -34,7 +55,12 @@ export class AdminKnowledgeController {
 
   @Patch(':id')
   @AdminOnly(PERMISSIONS.KNOWLEDGE_MANAGE)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateKnowledgeSourceDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateKnowledgeSourceDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.knowledge.update(id, dto, u.id, ctx);
   }
 
@@ -42,21 +68,33 @@ export class AdminKnowledgeController {
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.KNOWLEDGE_MANAGE)
   @ApiOperation({ summary: 'Approve a source; indexing (chunking + embeddings) runs in the background' })
-  approve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.knowledge.approve(id, u.id, ctx);
   }
 
   @Post(':id/reindex')
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.KNOWLEDGE_MANAGE)
-  reindex(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  reindex(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.knowledge.reindex(id, u.id, ctx);
   }
 
   @Post(':id/archive')
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.KNOWLEDGE_MANAGE)
-  archive(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.knowledge.archive(id, u.id, ctx);
   }
 
@@ -81,5 +119,9 @@ export class KnowledgeProcessor extends WorkerHost {
 }
 
 @Global()
-@Module({ controllers: [AdminKnowledgeController], providers: [KnowledgeService, ...workers(KnowledgeProcessor)], exports: [KnowledgeService] })
+@Module({
+  controllers: [AdminKnowledgeController],
+  providers: [KnowledgeService, ...workers(KnowledgeProcessor)],
+  exports: [KnowledgeService],
+})
 export class KnowledgeModule {}

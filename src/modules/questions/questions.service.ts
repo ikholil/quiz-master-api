@@ -1,6 +1,13 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { ContentStatus, Prisma, QuestionType, ReportStatus, ReviewDecision, ReviewEntityType } from '@prisma/client';
+import {
+  ContentStatus,
+  Prisma,
+  QuestionType,
+  ReportStatus,
+  ReviewDecision,
+  ReviewEntityType,
+} from '@prisma/client';
 import { Queue } from 'bullmq';
 import { randomBytes } from 'node:crypto';
 import { PageResult, pageArgs } from '../../common/dto/pagination.dto';
@@ -71,7 +78,17 @@ export class QuestionsService {
       const v = await this.writeVersion(t, q.id, 1, dto.content, user.id, 'Initial version');
       await t.question.update({ where: { id: q.id }, data: { latestVersionId: v.id } });
       await this.syncLinks(t, q.id, dto);
-      await this.audit.record({ actorId: user.id, action: 'question.create', entityType: 'Question', entityId: q.id, after: { type: dto.type, code: q.code }, ctx }, t);
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: 'question.create',
+          entityType: 'Question',
+          entityId: q.id,
+          after: { type: dto.type, code: q.code },
+          ctx,
+        },
+        t,
+      );
       return q.id;
     };
     const id = tx ? await run(tx) : await this.prisma.$transaction(run);
@@ -92,9 +109,14 @@ export class QuestionsService {
       if (content) {
         const latest = q.latestVersion!;
         if (latest.status === ContentStatus.IN_REVIEW) {
-          throw AppError.conflict('VERSION_IN_REVIEW', 'The latest version is in review; wait for the decision before editing');
+          throw AppError.conflict(
+            'VERSION_IN_REVIEW',
+            'The latest version is in review; wait for the decision before editing',
+          );
         }
-        const editableInPlace = ([ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED, ContentStatus.REJECTED] as ContentStatus[]).includes(latest.status);
+        const editableInPlace = (
+          [ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED, ContentStatus.REJECTED] as ContentStatus[]
+        ).includes(latest.status);
         if (editableInPlace) {
           // Never-published drafts can be rewritten: no attempt can reference them.
           await tx.questionOption.deleteMany({ where: { versionId: latest.id } });
@@ -111,7 +133,9 @@ export class QuestionsService {
               changeNote: changeNote ?? latest.changeNote,
               status: ContentStatus.DRAFT,
               options: { create: this.optionRows(content) },
-              explanation: content.explanation ? { create: { ...content.explanation, references: content.explanation.references ?? [] } } : undefined,
+              explanation: content.explanation
+                ? { create: { ...content.explanation, references: content.explanation.references ?? [] } }
+                : undefined,
             },
           });
         } else {
@@ -119,9 +143,20 @@ export class QuestionsService {
           const v = await this.writeVersion(tx, id, latest.versionNumber + 1, content, user.id, changeNote);
           await tx.question.update({ where: { id }, data: { latestVersionId: v.id } });
         }
-        if (!q.publishedVersionId) await tx.question.update({ where: { id }, data: { status: ContentStatus.DRAFT } });
+        if (!q.publishedVersionId)
+          await tx.question.update({ where: { id }, data: { status: ContentStatus.DRAFT } });
       }
-      await this.audit.record({ actorId: user.id, action: 'question.update', entityType: 'Question', entityId: id, after: { ...dto, content: dto.content ? '[content]' : undefined }, ctx }, tx);
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: 'question.update',
+          entityType: 'Question',
+          entityId: id,
+          after: { ...dto, content: dto.content ? '[content]' : undefined },
+          ctx,
+        },
+        tx,
+      );
     });
     return this.adminGet(id);
   }
@@ -134,8 +169,19 @@ export class QuestionsService {
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.questionVersion.update({ where: { id: v.id }, data: { status: ContentStatus.IN_REVIEW } });
-      if (!q.publishedVersionId) await tx.question.update({ where: { id }, data: { status: ContentStatus.IN_REVIEW } });
-      await this.audit.record({ actorId: user.id, action: 'question.submit_review', entityType: 'Question', entityId: id, metadata: { versionId: v.id }, ctx }, tx);
+      if (!q.publishedVersionId)
+        await tx.question.update({ where: { id }, data: { status: ContentStatus.IN_REVIEW } });
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: 'question.submit_review',
+          entityType: 'Question',
+          entityId: id,
+          metadata: { versionId: v.id },
+          ctx,
+        },
+        tx,
+      );
     });
     return this.adminGet(id);
   }
@@ -144,7 +190,8 @@ export class QuestionsService {
   async review(id: string, dto: ReviewDto, user: AuthUser, ctx: RequestContext) {
     const q = await this.getLatest(id);
     const v = q.latestVersion!;
-    if (v.status !== ContentStatus.IN_REVIEW) throw AppError.conflict('INVALID_TRANSITION', 'Latest version is not awaiting review');
+    if (v.status !== ContentStatus.IN_REVIEW)
+      throw AppError.conflict('INVALID_TRANSITION', 'Latest version is not awaiting review');
     const distinct = await this.settings.get<boolean>(SETTINGS.REQUIRE_DISTINCT_REVIEWER, true);
     if ((distinct || q.aiGenerated) && v.createdById === user.id) {
       throw AppError.forbidden('Authors cannot review their own content', 'SELF_REVIEW_FORBIDDEN');
@@ -156,11 +203,29 @@ export class QuestionsService {
     };
     await this.prisma.$transaction(async (tx) => {
       await tx.contentReview.create({
-        data: { entityType: ReviewEntityType.QUESTION, entityId: id, questionVersionId: v.id, reviewerId: user.id, decision: dto.decision, comments: dto.comments },
+        data: {
+          entityType: ReviewEntityType.QUESTION,
+          entityId: id,
+          questionVersionId: v.id,
+          reviewerId: user.id,
+          decision: dto.decision,
+          comments: dto.comments,
+        },
       });
       await tx.questionVersion.update({ where: { id: v.id }, data: { status: next[dto.decision] } });
-      if (!q.publishedVersionId) await tx.question.update({ where: { id }, data: { status: next[dto.decision] } });
-      await this.audit.record({ actorId: user.id, action: `question.review.${dto.decision.toLowerCase()}`, entityType: 'Question', entityId: id, metadata: { versionId: v.id, comments: dto.comments }, ctx }, tx);
+      if (!q.publishedVersionId)
+        await tx.question.update({ where: { id }, data: { status: next[dto.decision] } });
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: `question.review.${dto.decision.toLowerCase()}`,
+          entityType: 'Question',
+          entityId: id,
+          metadata: { versionId: v.id, comments: dto.comments },
+          ctx,
+        },
+        tx,
+      );
     });
     return this.adminGet(id);
   }
@@ -169,15 +234,34 @@ export class QuestionsService {
   async publish(id: string, user: AuthUser, ctx: RequestContext) {
     const q = await this.getLatest(id);
     const v = q.latestVersion!;
-    if (v.status !== ContentStatus.APPROVED) throw AppError.conflict('NOT_APPROVED', 'Only approved versions can be published');
+    if (v.status !== ContentStatus.APPROVED)
+      throw AppError.conflict('NOT_APPROVED', 'Only approved versions can be published');
     await this.prisma.$transaction(async (tx) => {
-      if (q.publishedVersionId) await tx.questionVersion.update({ where: { id: q.publishedVersionId }, data: { status: ContentStatus.ARCHIVED } });
+      if (q.publishedVersionId)
+        await tx.questionVersion.update({
+          where: { id: q.publishedVersionId },
+          data: { status: ContentStatus.ARCHIVED },
+        });
       await tx.questionVersion.update({ where: { id: v.id }, data: { status: ContentStatus.PUBLISHED } });
       await tx.question.update({
         where: { id },
-        data: { status: ContentStatus.PUBLISHED, publishedVersionId: v.id, publishedAt: q.publishedAt ?? new Date() },
+        data: {
+          status: ContentStatus.PUBLISHED,
+          publishedVersionId: v.id,
+          publishedAt: q.publishedAt ?? new Date(),
+        },
       });
-      await this.audit.record({ actorId: user.id, action: 'question.publish', entityType: 'Question', entityId: id, metadata: { versionId: v.id, versionNumber: v.versionNumber, previous: q.publishedVersionId }, ctx }, tx);
+      await this.audit.record(
+        {
+          actorId: user.id,
+          action: 'question.publish',
+          entityType: 'Question',
+          entityId: id,
+          metadata: { versionId: v.id, versionNumber: v.versionNumber, previous: q.publishedVersionId },
+          ctx,
+        },
+        tx,
+      );
     });
     return this.adminGet(id);
   }
@@ -186,7 +270,13 @@ export class QuestionsService {
     const q = await this.prisma.question.findUnique({ where: { id } });
     if (!q || q.deletedAt) throw AppError.notFound('Question');
     await this.prisma.question.update({ where: { id }, data: { status: ContentStatus.ARCHIVED } });
-    await this.audit.record({ actorId: user.id, action: 'question.archive', entityType: 'Question', entityId: id, ctx });
+    await this.audit.record({
+      actorId: user.id,
+      action: 'question.archive',
+      entityType: 'Question',
+      entityId: id,
+      ctx,
+    });
     return { id, status: ContentStatus.ARCHIVED };
   }
 
@@ -194,8 +284,17 @@ export class QuestionsService {
   async remove(id: string, user: AuthUser, ctx: RequestContext) {
     const q = await this.prisma.question.findUnique({ where: { id } });
     if (!q || q.deletedAt) throw AppError.notFound('Question');
-    await this.prisma.question.update({ where: { id }, data: { deletedAt: new Date(), status: ContentStatus.ARCHIVED } });
-    await this.audit.record({ actorId: user.id, action: 'question.delete', entityType: 'Question', entityId: id, ctx });
+    await this.prisma.question.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: ContentStatus.ARCHIVED },
+    });
+    await this.audit.record({
+      actorId: user.id,
+      action: 'question.delete',
+      entityType: 'Question',
+      entityId: id,
+      ctx,
+    });
     return { ok: true };
   }
 
@@ -219,7 +318,12 @@ export class QuestionsService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.question.findMany({
         where,
-        include: { latestVersion: true, publishedVersion: { select: { versionNumber: true } }, subject: true, topic: true },
+        include: {
+          latestVersion: true,
+          publishedVersion: { select: { versionNumber: true } },
+          subject: true,
+          topic: true,
+        },
         orderBy: { [q.sortBy ?? 'updatedAt']: q.sortOrder },
         ...pageArgs(q),
       }),
@@ -265,15 +369,28 @@ export class QuestionsService {
       },
     });
     if (!q || q.deletedAt) throw AppError.notFound('Question');
-    const reviews = await this.prisma.contentReview.findMany({ where: { entityType: ReviewEntityType.QUESTION, entityId: id }, orderBy: { createdAt: 'desc' }, take: 20 });
-    return { ...q, tags: q.tags.map((t) => t.tag.name), extraTopicIds: q.topics.map((t) => t.topicId), reviews };
+    const reviews = await this.prisma.contentReview.findMany({
+      where: { entityType: ReviewEntityType.QUESTION, entityId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    return {
+      ...q,
+      tags: q.tags.map((t) => t.tag.name),
+      extraTopicIds: q.topics.map((t) => t.topicId),
+      reviews,
+    };
   }
 
   async versions(id: string) {
     const versions = await this.prisma.questionVersion.findMany({
       where: { questionId: id },
       orderBy: { versionNumber: 'desc' },
-      include: { options: { orderBy: { sortOrder: 'asc' } }, explanation: true, reviews: { orderBy: { createdAt: 'desc' } } },
+      include: {
+        options: { orderBy: { sortOrder: 'asc' } },
+        explanation: true,
+        reviews: { orderBy: { createdAt: 'desc' } },
+      },
     });
     if (!versions.length) throw AppError.notFound('Question');
     return versions;
@@ -281,9 +398,18 @@ export class QuestionsService {
 
   /** Oldest-first queue of questions whose latest version awaits review. */
   async reviewQueue(q: AdminQuestionQueryDto) {
-    const where: Prisma.QuestionWhereInput = { deletedAt: null, latestVersion: { status: ContentStatus.IN_REVIEW }, subjectId: q.subjectId };
+    const where: Prisma.QuestionWhereInput = {
+      deletedAt: null,
+      latestVersion: { status: ContentStatus.IN_REVIEW },
+      subjectId: q.subjectId,
+    };
     const [rows, total] = await this.prisma.$transaction([
-      this.prisma.question.findMany({ where, include: { latestVersion: true, subject: true }, orderBy: { updatedAt: 'asc' }, ...pageArgs(q) }),
+      this.prisma.question.findMany({
+        where,
+        include: { latestVersion: true, subject: true },
+        orderBy: { updatedAt: 'asc' },
+        ...pageArgs(q),
+      }),
       this.prisma.question.count({ where }),
     ]);
     return PageResult.of(
@@ -308,8 +434,10 @@ export class QuestionsService {
   }
 
   async createSource(dto: SourceDto) {
-    if (dto.isOfficial && dto.type !== 'PREVIOUS_YEAR') throw AppError.badRequest('INVALID_SOURCE', 'Only previous-year sources can be marked official');
-    if (dto.isOfficial && !dto.paperId && !dto.reference) throw AppError.badRequest('INVALID_SOURCE', 'Official sources need a paper or verifiable reference');
+    if (dto.isOfficial && dto.type !== 'PREVIOUS_YEAR')
+      throw AppError.badRequest('INVALID_SOURCE', 'Only previous-year sources can be marked official');
+    if (dto.isOfficial && !dto.paperId && !dto.reference)
+      throw AppError.badRequest('INVALID_SOURCE', 'Official sources need a paper or verifiable reference');
     return this.prisma.questionSource.create({ data: dto });
   }
 
@@ -331,15 +459,27 @@ export class QuestionsService {
       type: { notIn: [QuestionType.WRITTEN, QuestionType.VIVA] },
     };
     const [rows, total] = await this.prisma.$transaction([
-      this.prisma.question.findMany({ where, select: { publishedVersionId: true }, orderBy: { publishedAt: 'desc' }, ...pageArgs(q) }),
+      this.prisma.question.findMany({
+        where,
+        select: { publishedVersionId: true },
+        orderBy: { publishedAt: 'desc' },
+        ...pageArgs(q),
+      }),
       this.prisma.question.count({ where }),
     ]);
     const versions = await this.loadVersions(rows.map((r) => r.publishedVersionId!));
-    return PageResult.of(rows.map((r) => toStudentView(versions.get(r.publishedVersionId!)!)), total, q);
+    return PageResult.of(
+      rows.map((r) => toStudentView(versions.get(r.publishedVersionId!)!)),
+      total,
+      q,
+    );
   }
 
   async publicGet(id: string) {
-    const q = await this.prisma.question.findFirst({ where: { id, ...PUBLISHED_QUESTION }, select: { publishedVersionId: true } });
+    const q = await this.prisma.question.findFirst({
+      where: { id, ...PUBLISHED_QUESTION },
+      select: { publishedVersionId: true },
+    });
     if (!q) throw AppError.notFound('Question');
     const v = (await this.loadVersions([q.publishedVersionId!])).get(q.publishedVersionId!)!;
     return toStudentView(v);
@@ -347,7 +487,10 @@ export class QuestionsService {
 
   async loadVersions(ids: string[]): Promise<Map<string, VersionWithContent>> {
     if (!ids.length) return new Map();
-    const rows = await this.prisma.questionVersion.findMany({ where: { id: { in: ids } }, include: VERSION_INCLUDE });
+    const rows = await this.prisma.questionVersion.findMany({
+      where: { id: { in: ids } },
+      include: VERSION_INCLUDE,
+    });
     return new Map(rows.map((r) => [r.id, r]));
   }
 
@@ -360,10 +503,19 @@ export class QuestionsService {
   async report(questionId: string, dto: CreateReportDto, userId: string) {
     const q = await this.prisma.question.findFirst({ where: { id: questionId, ...PUBLISHED_QUESTION } });
     if (!q) throw AppError.notFound('Question');
-    const open = await this.prisma.questionReport.count({ where: { questionId, reporterId: userId, status: { in: [ReportStatus.OPEN, ReportStatus.IN_REVIEW] } } });
-    if (open) throw AppError.conflict('ALREADY_REPORTED', 'You already have an open report for this question');
+    const open = await this.prisma.questionReport.count({
+      where: { questionId, reporterId: userId, status: { in: [ReportStatus.OPEN, ReportStatus.IN_REVIEW] } },
+    });
+    if (open)
+      throw AppError.conflict('ALREADY_REPORTED', 'You already have an open report for this question');
     return this.prisma.questionReport.create({
-      data: { questionId, versionId: q.publishedVersionId, reporterId: userId, reason: dto.reason, details: dto.details },
+      data: {
+        questionId,
+        versionId: q.publishedVersionId,
+        reporterId: userId,
+        reason: dto.reason,
+        details: dto.details,
+      },
       select: { id: true, status: true, createdAt: true },
     });
   }
@@ -371,7 +523,12 @@ export class QuestionsService {
   async listReports(q: ReportQueryDto) {
     const where: Prisma.QuestionReportWhereInput = { status: q.status };
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.questionReport.findMany({ where, include: { question: { select: { code: true } } }, orderBy: { createdAt: q.sortOrder }, ...pageArgs(q) }),
+      this.prisma.questionReport.findMany({
+        where,
+        include: { question: { select: { code: true } } },
+        orderBy: { createdAt: q.sortOrder },
+        ...pageArgs(q),
+      }),
       this.prisma.questionReport.count({ where }),
     ]);
     return PageResult.of(items, total, q);
@@ -383,9 +540,21 @@ export class QuestionsService {
     const done = dto.status !== ReportStatus.IN_REVIEW;
     const updated = await this.prisma.questionReport.update({
       where: { id },
-      data: { status: dto.status, resolution: dto.resolution, resolvedById: done ? user.id : null, resolvedAt: done ? new Date() : null },
+      data: {
+        status: dto.status,
+        resolution: dto.resolution,
+        resolvedById: done ? user.id : null,
+        resolvedAt: done ? new Date() : null,
+      },
     });
-    await this.audit.record({ actorId: user.id, action: 'question.report.resolve', entityType: 'QuestionReport', entityId: id, after: dto, ctx });
+    await this.audit.record({
+      actorId: user.id,
+      action: 'question.report.resolve',
+      entityType: 'QuestionReport',
+      entityId: id,
+      after: dto,
+      ctx,
+    });
     return updated;
   }
 
@@ -393,10 +562,23 @@ export class QuestionsService {
 
   async startImport(dto: ImportQuestionsDto, user: AuthUser, ctx: RequestContext) {
     const file = await this.prisma.storedFile.findUnique({ where: { id: dto.fileId } });
-    if (!file || file.purpose !== 'QUESTION_IMPORT') throw AppError.badRequest('INVALID_FILE', 'Upload the file with purpose QUESTION_IMPORT first');
-    const job = await this.prisma.questionImportJob.create({ data: { fileId: dto.fileId, format: dto.format, createdById: user.id } });
-    await this.importQueue.add(JOBS.IMPORT_QUESTIONS, { jobId: job.id, submitForReview: !!dto.submitForReview }, { jobId: `import-${job.id}`, attempts: 1 });
-    await this.audit.record({ actorId: user.id, action: 'question.import.start', entityType: 'QuestionImportJob', entityId: job.id, ctx });
+    if (!file || file.purpose !== 'QUESTION_IMPORT')
+      throw AppError.badRequest('INVALID_FILE', 'Upload the file with purpose QUESTION_IMPORT first');
+    const job = await this.prisma.questionImportJob.create({
+      data: { fileId: dto.fileId, format: dto.format, createdById: user.id },
+    });
+    await this.importQueue.add(
+      JOBS.IMPORT_QUESTIONS,
+      { jobId: job.id, submitForReview: !!dto.submitForReview },
+      { jobId: `import-${job.id}`, attempts: 1 },
+    );
+    await this.audit.record({
+      actorId: user.id,
+      action: 'question.import.start',
+      entityType: 'QuestionImportJob',
+      entityId: job.id,
+      ctx,
+    });
     return job;
   }
 
@@ -414,7 +596,13 @@ export class QuestionsService {
 
   private assertContent(type: QuestionType, content: ContentInput) {
     const errors = validateQuestionContent(type, content);
-    if (errors.length) throw new AppError('INVALID_QUESTION_CONTENT', errors.join('; '), HttpStatus.UNPROCESSABLE_ENTITY, errors);
+    if (errors.length)
+      throw new AppError(
+        'INVALID_QUESTION_CONTENT',
+        errors.join('; '),
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        errors,
+      );
   }
 
   private optionRows(content: ContentInput) {
@@ -428,7 +616,14 @@ export class QuestionsService {
     }));
   }
 
-  private writeVersion(tx: Tx, questionId: string, versionNumber: number, content: ContentInput, userId: string, changeNote?: string) {
+  private writeVersion(
+    tx: Tx,
+    questionId: string,
+    versionNumber: number,
+    content: ContentInput,
+    userId: string,
+    changeNote?: string,
+  ) {
     return tx.questionVersion.create({
       data: {
         questionId,
@@ -443,36 +638,66 @@ export class QuestionsService {
         createdById: userId,
         status: ContentStatus.DRAFT,
         options: { create: this.optionRows(content) },
-        explanation: content.explanation ? { create: { ...content.explanation, references: content.explanation.references ?? [] } } : undefined,
+        explanation: content.explanation
+          ? { create: { ...content.explanation, references: content.explanation.references ?? [] } }
+          : undefined,
       },
     });
   }
 
-  private async assertRefs(tx: Tx, dto: { subjectId?: string; topicId?: string; passageId?: string; sourceId?: string; extraTopicIds?: string[]; examIds?: string[] }) {
-    if (dto.subjectId && !(await tx.subject.count({ where: { id: dto.subjectId } }))) throw AppError.badRequest('INVALID_SUBJECT', 'Subject not found');
+  private async assertRefs(
+    tx: Tx,
+    dto: {
+      subjectId?: string;
+      topicId?: string;
+      passageId?: string;
+      sourceId?: string;
+      extraTopicIds?: string[];
+      examIds?: string[];
+    },
+  ) {
+    if (dto.subjectId && !(await tx.subject.count({ where: { id: dto.subjectId } })))
+      throw AppError.badRequest('INVALID_SUBJECT', 'Subject not found');
     if (dto.topicId) {
       const topic = await tx.topic.findUnique({ where: { id: dto.topicId }, include: { chapter: true } });
       if (!topic) throw AppError.badRequest('INVALID_TOPIC', 'Topic not found');
-      if (dto.subjectId && topic.chapter.subjectId !== dto.subjectId) throw AppError.badRequest('TOPIC_SUBJECT_MISMATCH', 'Topic does not belong to the subject');
+      if (dto.subjectId && topic.chapter.subjectId !== dto.subjectId)
+        throw AppError.badRequest('TOPIC_SUBJECT_MISMATCH', 'Topic does not belong to the subject');
     }
-    if (dto.passageId && !(await tx.questionPassage.count({ where: { id: dto.passageId } }))) throw AppError.badRequest('INVALID_PASSAGE', 'Passage not found');
-    if (dto.sourceId && !(await tx.questionSource.count({ where: { id: dto.sourceId } }))) throw AppError.badRequest('INVALID_SOURCE', 'Source not found');
-    if (dto.extraTopicIds?.length && (await tx.topic.count({ where: { id: { in: dto.extraTopicIds } } })) !== new Set(dto.extraTopicIds).size) {
+    if (dto.passageId && !(await tx.questionPassage.count({ where: { id: dto.passageId } })))
+      throw AppError.badRequest('INVALID_PASSAGE', 'Passage not found');
+    if (dto.sourceId && !(await tx.questionSource.count({ where: { id: dto.sourceId } })))
+      throw AppError.badRequest('INVALID_SOURCE', 'Source not found');
+    if (
+      dto.extraTopicIds?.length &&
+      (await tx.topic.count({ where: { id: { in: dto.extraTopicIds } } })) !== new Set(dto.extraTopicIds).size
+    ) {
       throw AppError.badRequest('INVALID_TOPIC', 'One or more topics not found');
     }
-    if (dto.examIds?.length && (await tx.exam.count({ where: { id: { in: dto.examIds } } })) !== new Set(dto.examIds).size) {
+    if (
+      dto.examIds?.length &&
+      (await tx.exam.count({ where: { id: { in: dto.examIds } } })) !== new Set(dto.examIds).size
+    ) {
       throw AppError.badRequest('INVALID_EXAM', 'One or more exams not found');
     }
   }
 
-  private async syncLinks(tx: Tx, questionId: string, dto: { extraTopicIds?: string[]; examIds?: string[]; tags?: string[] }) {
+  private async syncLinks(
+    tx: Tx,
+    questionId: string,
+    dto: { extraTopicIds?: string[]; examIds?: string[]; tags?: string[] },
+  ) {
     if (dto.extraTopicIds) {
       await tx.questionTopic.deleteMany({ where: { questionId } });
-      await tx.questionTopic.createMany({ data: [...new Set(dto.extraTopicIds)].map((topicId) => ({ questionId, topicId })) });
+      await tx.questionTopic.createMany({
+        data: [...new Set(dto.extraTopicIds)].map((topicId) => ({ questionId, topicId })),
+      });
     }
     if (dto.examIds) {
       await tx.examQuestionMapping.deleteMany({ where: { questionId } });
-      await tx.examQuestionMapping.createMany({ data: [...new Set(dto.examIds)].map((examId) => ({ questionId, examId })) });
+      await tx.examQuestionMapping.createMany({
+        data: [...new Set(dto.examIds)].map((examId) => ({ questionId, examId })),
+      });
     }
     if (dto.tags) {
       await tx.questionTagLink.deleteMany({ where: { questionId } });

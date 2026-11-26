@@ -26,7 +26,9 @@ export class RbacService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await this.syncSystemRoles().catch((err: Error) => this.logger.error(`Permission sync failed: ${err.message}`));
+    await this.syncSystemRoles().catch((err: Error) =>
+      this.logger.error(`Permission sync failed: ${err.message}`),
+    );
   }
 
   /** Ensures every catalogue permission and system role exists. System role permissions are reconciled. */
@@ -63,7 +65,9 @@ export class RbacService implements OnApplicationBootstrap {
     });
     const access: UserAccess = {
       roles: userRoles.map((ur) => ur.role.key),
-      permissions: [...new Set(userRoles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.key)))],
+      permissions: [
+        ...new Set(userRoles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.key))),
+      ],
     };
     await this.redis.set(cacheKey, JSON.stringify(access), 'EX', ACL_TTL_SECONDS).catch(() => undefined);
     return access;
@@ -90,20 +94,22 @@ export class RbacService implements OnApplicationBootstrap {
   }
 
   listRoles() {
-    return this.prisma.role.findMany({
-      orderBy: { key: 'asc' },
-      include: { permissions: { include: { permission: true } }, _count: { select: { users: true } } },
-    }).then((roles) =>
-      roles.map((r) => ({
-        id: r.id,
-        key: r.key,
-        name: r.name,
-        description: r.description,
-        isSystem: r.isSystem,
-        userCount: r._count.users,
-        permissions: r.permissions.map((p) => p.permission.key).sort(),
-      })),
-    );
+    return this.prisma.role
+      .findMany({
+        orderBy: { key: 'asc' },
+        include: { permissions: { include: { permission: true } }, _count: { select: { users: true } } },
+      })
+      .then((roles) =>
+        roles.map((r) => ({
+          id: r.id,
+          key: r.key,
+          name: r.name,
+          description: r.description,
+          isSystem: r.isSystem,
+          userCount: r._count.users,
+          permissions: r.permissions.map((p) => p.permission.key).sort(),
+        })),
+      );
   }
 
   listPermissions() {
@@ -122,16 +128,26 @@ export class RbacService implements OnApplicationBootstrap {
           permissions: { create: perms.map((p) => ({ permissionId: p.id })) },
         },
       });
-      await this.audit.record({ actorId, action: 'role.create', entityType: 'Role', entityId: created.id, after: dto, ctx }, tx);
+      await this.audit.record(
+        { actorId, action: 'role.create', entityType: 'Role', entityId: created.id, after: dto, ctx },
+        tx,
+      );
       return created;
     });
     return { id: role.id, key: role.key };
   }
 
   async updateRole(roleId: string, dto: UpdateRoleDto, actorId: string, ctx: RequestContext) {
-    const role = await this.prisma.role.findUnique({ where: { id: roleId }, include: { permissions: { include: { permission: true } } } });
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+      include: { permissions: { include: { permission: true } } },
+    });
     if (!role) throw AppError.notFound('Role');
-    if (role.isSystem) throw AppError.badRequest('SYSTEM_ROLE_IMMUTABLE', 'System roles are managed in code and cannot be edited');
+    if (role.isSystem)
+      throw AppError.badRequest(
+        'SYSTEM_ROLE_IMMUTABLE',
+        'System roles are managed in code and cannot be edited',
+      );
     if (dto.permissions) this.assertKnownPermissions(dto.permissions);
     await this.prisma.$transaction(async (tx) => {
       await tx.role.update({ where: { id: roleId }, data: { name: dto.name, description: dto.description } });
@@ -162,7 +178,8 @@ export class RbacService implements OnApplicationBootstrap {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.deletedAt) throw AppError.notFound('User');
     const roles = await this.prisma.role.findMany({ where: { key: { in: roleKeys } } });
-    if (roles.length !== new Set(roleKeys).size) throw AppError.badRequest('UNKNOWN_ROLE', 'One or more roles do not exist');
+    if (roles.length !== new Set(roleKeys).size)
+      throw AppError.badRequest('UNKNOWN_ROLE', 'One or more roles do not exist');
 
     const actorAccess = await this.getAccess(actorId);
     if (roleKeys.includes('SUPER_ADMIN') && !actorAccess.roles.includes('SUPER_ADMIN')) {
@@ -175,9 +192,19 @@ export class RbacService implements OnApplicationBootstrap {
 
     await this.prisma.$transaction(async (tx) => {
       await tx.userRole.deleteMany({ where: { userId } });
-      await tx.userRole.createMany({ data: roles.map((r) => ({ userId, roleId: r.id, grantedBy: actorId })) });
+      await tx.userRole.createMany({
+        data: roles.map((r) => ({ userId, roleId: r.id, grantedBy: actorId })),
+      });
       await this.audit.record(
-        { actorId, action: 'user.roles.set', entityType: 'User', entityId: userId, before: before.roles, after: roleKeys, ctx },
+        {
+          actorId,
+          action: 'user.roles.set',
+          entityType: 'User',
+          entityId: userId,
+          before: before.roles,
+          after: roleKeys,
+          ctx,
+        },
         tx,
       );
     });
@@ -187,7 +214,8 @@ export class RbacService implements OnApplicationBootstrap {
 
   private assertKnownPermissions(keys: string[]) {
     const unknown = keys.filter((k) => !ALL_PERMISSIONS.includes(k as (typeof ALL_PERMISSIONS)[number]));
-    if (unknown.length) throw AppError.badRequest('UNKNOWN_PERMISSION', `Unknown permissions: ${unknown.join(', ')}`);
+    if (unknown.length)
+      throw AppError.badRequest('UNKNOWN_PERMISSION', `Unknown permissions: ${unknown.join(', ')}`);
   }
 
   static isAdmin(access: UserAccess): boolean {

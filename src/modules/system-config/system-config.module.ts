@@ -66,11 +66,30 @@ export class SystemConfigService {
     const before = await this.prisma.systemSetting.findUnique({ where: { key } });
     const row = await this.prisma.systemSetting.upsert({
       where: { key },
-      create: { key, value: dto.value as Prisma.InputJsonValue, description: dto.description, isPublic: dto.isPublic ?? false, updatedById: actorId },
-      update: { value: dto.value as Prisma.InputJsonValue, description: dto.description, isPublic: dto.isPublic, updatedById: actorId },
+      create: {
+        key,
+        value: dto.value as Prisma.InputJsonValue,
+        description: dto.description,
+        isPublic: dto.isPublic ?? false,
+        updatedById: actorId,
+      },
+      update: {
+        value: dto.value as Prisma.InputJsonValue,
+        description: dto.description,
+        isPublic: dto.isPublic,
+        updatedById: actorId,
+      },
     });
     this.cache.delete(key);
-    await this.audit.record({ actorId, action: 'settings.set', entityType: 'SystemSetting', entityId: key, before: before?.value, after: dto.value, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'settings.set',
+      entityType: 'SystemSetting',
+      entityId: key,
+      before: before?.value,
+      after: dto.value,
+      ctx,
+    });
     return row;
   }
 
@@ -79,7 +98,14 @@ export class SystemConfigService {
     if (!before) throw AppError.notFound('Setting');
     await this.prisma.systemSetting.delete({ where: { key } });
     this.cache.delete(key);
-    await this.audit.record({ actorId, action: 'settings.delete', entityType: 'SystemSetting', entityId: key, before: before.value, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'settings.delete',
+      entityType: 'SystemSetting',
+      entityId: key,
+      before: before.value,
+      ctx,
+    });
     return { ok: true };
   }
 }
@@ -129,7 +155,12 @@ export class AdminSettingsController {
   @Put(':key')
   @AdminOnly(PERMISSIONS.SETTINGS_MANAGE)
   @ApiEnvelope(SettingResponse)
-  set(@Param() p: KeyParam, @Body() dto: UpsertSettingDto, @CurrentUser() user: AuthUser, @ReqContext() ctx: RequestContext) {
+  set(
+    @Param() p: KeyParam,
+    @Body() dto: UpsertSettingDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.settings.set(p.key, dto, user.id, ctx);
   }
 

@@ -75,6 +75,7 @@ export function buildOpenApi(app: INestApplication): OpenAPIObject {
     .addServer('/', 'Current host')
     .build();
   return SwaggerModule.createDocument(app, config, {
-    operationIdFactory: (controllerKey: string, methodKey: string) => `${controllerKey.replace(/Controller$/, '')}_${methodKey}`,
+    operationIdFactory: (controllerKey: string, methodKey: string) =>
+      `${controllerKey.replace(/Controller$/, '')}_${methodKey}`,
   });
 }

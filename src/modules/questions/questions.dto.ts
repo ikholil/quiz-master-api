@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ContentStatus, Difficulty, QuestionSourceType, QuestionType, ReportStatus, ReviewDecision } from '@prisma/client';
+import {
+  ContentStatus,
+  Difficulty,
+  QuestionSourceType,
+  QuestionType,
+  ReportStatus,
+  ReviewDecision,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -32,7 +39,12 @@ export class OptionDto {
 export class ExplanationDto {
   @IsString() @MinLength(2) @MaxLength(20000) content: string;
   @IsOptional() @IsString() @MaxLength(20000) contentBn?: string;
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(500, { each: true }) references?: string[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  references?: string[];
 }
 
 export class QuestionContentDto {
@@ -40,8 +52,18 @@ export class QuestionContentDto {
   @IsOptional() @IsString() @MaxLength(10000) stemBn?: string;
   @IsOptional() @IsUUID() imageFileId?: string;
   @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.25) @Max(100) defaultMarks?: number;
-  @IsOptional() @IsArray() @ArrayMaxSize(8) @ValidateNested({ each: true }) @Type(() => OptionDto) options?: OptionDto[];
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(500, { each: true }) acceptedAnswers?: string[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => OptionDto)
+  options?: OptionDto[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  acceptedAnswers?: string[];
   @IsOptional() @IsString() @MaxLength(10000) rubric?: string;
   @IsOptional() @ValidateNested() @Type(() => ExplanationDto) explanation?: ExplanationDto;
 }
@@ -56,7 +78,12 @@ export class CreateQuestionDto {
   @IsOptional() @IsUUID() passageId?: string;
   @IsOptional() @IsUUID() sourceId?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsUUID('4', { each: true }) examIds?: string[];
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(40, { each: true }) tags?: string[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  tags?: string[];
   /** Demonstration content (seed/sample data). Never presented as an official paper. */
   @IsOptional() @IsBoolean() isDemo?: boolean;
   @IsOptional() @IsBoolean() aiGenerated?: boolean;
@@ -71,7 +98,12 @@ export class UpdateQuestionDto {
   @IsOptional() @IsUUID() passageId?: string;
   @IsOptional() @IsUUID() sourceId?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsUUID('4', { each: true }) examIds?: string[];
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(40, { each: true }) tags?: string[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  tags?: string[];
   /** New content creates a new version (or replaces an unpublished draft). */
   @IsOptional() @ValidateNested() @Type(() => QuestionContentDto) content?: QuestionContentDto;
   @IsOptional() @IsString() @MaxLength(500) changeNote?: string;
@@ -105,10 +137,14 @@ export class AdminQuestionQueryDto extends SearchPaginationQueryDto {
   @IsOptional() @IsUUID() topicId?: string;
   @IsOptional() @IsUUID() examId?: string;
   @IsOptional() @IsString() @MaxLength(40) tag?: string;
-  @ApiPropertyOptional({ enum: QuestionSourceType }) @IsOptional() @IsEnum(QuestionSourceType) sourceType?: QuestionSourceType;
+  @ApiPropertyOptional({ enum: QuestionSourceType })
+  @IsOptional()
+  @IsEnum(QuestionSourceType)
+  sourceType?: QuestionSourceType;
   @IsOptional() @IsIn(['true', 'false']) aiGenerated?: string;
   @IsOptional() @IsIn(['true', 'false']) isDemo?: string;
-  @IsOptional() @IsIn(['createdAt', 'updatedAt', 'timesAnswered']) sortBy?: 'createdAt' | 'updatedAt' | 'timesAnswered';
+  @IsOptional() @IsIn(['createdAt', 'updatedAt', 'timesAnswered']) sortBy?:
+    'createdAt' | 'updatedAt' | 'timesAnswered';
 }
 
 export class PublicQuestionQueryDto extends SearchPaginationQueryDto {
@@ -173,7 +209,8 @@ export class StudentQuestionView {
   @ApiProperty() subjectId: string;
   @ApiPropertyOptional({ nullable: true }) topicId: string | null;
   @ApiProperty() isDemo: boolean;
-  @ApiPropertyOptional({ nullable: true, description: 'e.g. "BCS 2019" for previous-year questions' }) sourceLabel: string | null;
+  @ApiPropertyOptional({ nullable: true, description: 'e.g. "BCS 2019" for previous-year questions' })
+  sourceLabel: string | null;
 }
 
 export class AnswerKeyView {

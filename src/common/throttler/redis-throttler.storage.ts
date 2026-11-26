@@ -38,9 +38,23 @@ return {hits, hitsTtl, 0, 0}
 export class RedisThrottlerStorage implements ThrottlerStorage {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
-  async increment(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<ThrottlerStorageRecord> {
+  async increment(
+    key: string,
+    ttl: number,
+    limit: number,
+    blockDuration: number,
+    throttlerName: string,
+  ): Promise<ThrottlerStorageRecord> {
     const base = `throttle:${throttlerName}:${key}`;
-    const [hits, hitsTtl, blocked, blockTtl] = (await this.redis.eval(SCRIPT, 2, `${base}:hits`, `${base}:block`, ttl, limit, blockDuration || ttl)) as number[];
+    const [hits, hitsTtl, blocked, blockTtl] = (await this.redis.eval(
+      SCRIPT,
+      2,
+      `${base}:hits`,
+      `${base}:block`,
+      ttl,
+      limit,
+      blockDuration || ttl,
+    )) as number[];
     return {
       totalHits: hits,
       timeToExpire: Math.ceil(Math.max(hitsTtl, 0) / 1000),

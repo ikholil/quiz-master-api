@@ -35,16 +35,36 @@ export class OtpService {
     return hmacSha256(this.cfg.auth.otpHmacSecret, `${identifier}|${purpose}|${code}`);
   }
 
-  async issue(identifier: string, channel: OtpChannel, purpose: OtpPurpose, ip?: string, deliver = true): Promise<OtpRequestResult> {
+  async issue(
+    identifier: string,
+    channel: OtpChannel,
+    purpose: OtpPurpose,
+    ip?: string,
+    deliver = true,
+  ): Promise<OtpRequestResult> {
     const cooldownKey = `otp:cooldown:${purpose}:${identifier}`;
     const ttl = await this.redis.ttl(cooldownKey);
     if (ttl > 0) {
-      throw new AppError('OTP_COOLDOWN', `Please wait ${ttl} seconds before requesting another code`, HttpStatus.TOO_MANY_REQUESTS, {
-        retryAfterSeconds: ttl,
-      });
+      throw new AppError(
+        'OTP_COOLDOWN',
+        `Please wait ${ttl} seconds before requesting another code`,
+        HttpStatus.TOO_MANY_REQUESTS,
+        {
+          retryAfterSeconds: ttl,
+        },
+      );
     }
-    await this.bumpOrThrow(`otp:hourly:${identifier}`, MAX_SENDS_PER_IDENTIFIER_PER_HOUR, 'Too many codes requested for this account. Try again later.');
-    if (ip) await this.bumpOrThrow(`otp:hourly-ip:${ip}`, MAX_SENDS_PER_IP_PER_HOUR, 'Too many codes requested from this network. Try again later.');
+    await this.bumpOrThrow(
+      `otp:hourly:${identifier}`,
+      MAX_SENDS_PER_IDENTIFIER_PER_HOUR,
+      'Too many codes requested for this account. Try again later.',
+    );
+    if (ip)
+      await this.bumpOrThrow(
+        `otp:hourly-ip:${ip}`,
+        MAX_SENDS_PER_IP_PER_HOUR,
+        'Too many codes requested from this network. Try again later.',
+      );
 
     const code = generateOtp(6);
     await this.prisma.$transaction([
@@ -87,8 +107,10 @@ export class OtpService {
       where: { identifier, purpose, consumedAt: null },
       orderBy: { createdAt: 'desc' },
     });
-    if (!otp || otp.expiresAt <= new Date()) throw AppError.badRequest('OTP_INVALID', 'The code is invalid or has expired');
-    if (otp.attempts >= otp.maxAttempts) throw AppError.badRequest('OTP_ATTEMPTS_EXCEEDED', 'Too many incorrect attempts. Request a new code.');
+    if (!otp || otp.expiresAt <= new Date())
+      throw AppError.badRequest('OTP_INVALID', 'The code is invalid or has expired');
+    if (otp.attempts >= otp.maxAttempts)
+      throw AppError.badRequest('OTP_ATTEMPTS_EXCEEDED', 'Too many incorrect attempts. Request a new code.');
 
     const bumped = await this.prisma.otpVerification.updateMany({
       where: { id: otp.id, consumedAt: null, attempts: { lt: otp.maxAttempts } },
@@ -98,9 +120,14 @@ export class OtpService {
 
     if (!/^\d{6}$/.test(code) || !safeEqualHex(this.hash(identifier, purpose, code), otp.codeHash)) {
       const remaining = otp.maxAttempts - otp.attempts - 1;
-      throw AppError.badRequest('OTP_INVALID', 'The code is invalid or has expired', { remainingAttempts: Math.max(remaining, 0) });
+      throw AppError.badRequest('OTP_INVALID', 'The code is invalid or has expired', {
+        remainingAttempts: Math.max(remaining, 0),
+      });
     }
-    const consumed = await this.prisma.otpVerification.updateMany({ where: { id: otp.id, consumedAt: null }, data: { consumedAt: new Date() } });
+    const consumed = await this.prisma.otpVerification.updateMany({
+      where: { id: otp.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
     if (consumed.count !== 1) throw AppError.badRequest('OTP_INVALID', 'The code is invalid or has expired');
   }
 
@@ -109,7 +136,9 @@ export class OtpService {
     if (count === 1) await this.redis.expire(key, 3600);
     if (count > max) {
       const ttl = await this.redis.ttl(key);
-      throw new AppError('OTP_RATE_LIMITED', message, HttpStatus.TOO_MANY_REQUESTS, { retryAfterSeconds: ttl });
+      throw new AppError('OTP_RATE_LIMITED', message, HttpStatus.TOO_MANY_REQUESTS, {
+        retryAfterSeconds: ttl,
+      });
     }
   }
 }

@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AccessLevel, Difficulty, MultiSelectPolicy, PublishStatus, QuestionType, ResultVisibility, SelectionMode } from '@prisma/client';
+import {
+  AccessLevel,
+  Difficulty,
+  MultiSelectPolicy,
+  PublishStatus,
+  QuestionType,
+  ResultVisibility,
+  SelectionMode,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -51,14 +59,25 @@ export class MockConfigDto {
   @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) passMarks?: number;
   @IsOptional() @IsBoolean() shuffleQuestions?: boolean;
   @IsOptional() @IsBoolean() shuffleOptions?: boolean;
-  @ApiPropertyOptional({ enum: MultiSelectPolicy }) @IsOptional() @IsEnum(MultiSelectPolicy) multiSelectPolicy?: MultiSelectPolicy;
+  @ApiPropertyOptional({ enum: MultiSelectPolicy })
+  @IsOptional()
+  @IsEnum(MultiSelectPolicy)
+  multiSelectPolicy?: MultiSelectPolicy;
   @IsOptional() @IsBoolean() allowNegativeTotal?: boolean;
   @IsOptional() @IsInt() @Min(1) @Max(100) maxAttempts?: number;
-  @ApiPropertyOptional({ enum: ResultVisibility }) @IsOptional() @IsEnum(ResultVisibility) resultVisibility?: ResultVisibility;
+  @ApiPropertyOptional({ enum: ResultVisibility })
+  @IsOptional()
+  @IsEnum(ResultVisibility)
+  resultVisibility?: ResultVisibility;
   /** Live/scheduled exams: attempts may start only inside this window. */
   @IsOptional() @IsISO8601() availableFrom?: string;
   @IsOptional() @IsISO8601() availableUntil?: string;
-  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => SectionConfigDto) sections: SectionConfigDto[];
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => SectionConfigDto)
+  sections: SectionConfigDto[];
 }
 
 export class CreateMockTemplateDto {

@@ -1,4 +1,10 @@
-import { createParamDecorator, ExecutionContext, SetMetadata, applyDecorators, UseGuards } from '@nestjs/common';
+import {
+  createParamDecorator,
+  ExecutionContext,
+  SetMetadata,
+  applyDecorators,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiForbiddenResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
 import type { AuthUser, RequestContext } from '../types/auth-user';
@@ -12,7 +18,8 @@ export const ENTITLEMENT_KEY = 'entitlement';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 /** Requires all listed permissions. */
-export const RequirePermissions = (...permissions: PermissionKey[]) => SetMetadata(PERMISSIONS_KEY, permissions);
+export const RequirePermissions = (...permissions: PermissionKey[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);
 
 /** Admin endpoint: requires `admin.access` plus the listed permissions. */
 export const AdminOnly = (...permissions: PermissionKey[]) =>
@@ -25,7 +32,10 @@ export const AdminOnly = (...permissions: PermissionKey[]) =>
 
 /** Authenticated student endpoint. */
 export const Authenticated = () =>
-  applyDecorators(ApiBearerAuth(), ApiUnauthorizedResponse({ description: 'Missing or invalid access token' }));
+  applyDecorators(
+    ApiBearerAuth(),
+    ApiUnauthorizedResponse({ description: 'Missing or invalid access token' }),
+  );
 
 /** Requires an active entitlement for the given feature key (validated server-side). */
 export const RequireEntitlement = (feature: string) => SetMetadata(ENTITLEMENT_KEY, feature);

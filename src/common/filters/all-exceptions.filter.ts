@@ -1,4 +1,13 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Inject, Logger, Optional } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
@@ -37,47 +46,82 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (res.headersSent) return;
     res.status(payload.status).json({
       success: false,
-      error: { code: payload.code, message: payload.message, ...(payload.details !== undefined ? { details: payload.details } : {}) },
+      error: {
+        code: payload.code,
+        message: payload.message,
+        ...(payload.details !== undefined ? { details: payload.details } : {}),
+      },
       meta: { requestId },
     });
   }
 
   private toPayload(exception: unknown): ErrorPayload {
     if (exception instanceof AppError) {
-      return { status: exception.status, code: exception.code, message: exception.message, details: exception.details };
+      return {
+        status: exception.status,
+        code: exception.code,
+        message: exception.message,
+        details: exception.details,
+      };
     }
     if (exception instanceof ThrottlerException) {
       return { status: 429, code: 'TOO_MANY_REQUESTS', message: 'Too many requests, please slow down' };
     }
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
-      const body = exception.getResponse() as string | { message?: string | string[]; error?: string; code?: string };
-      const message = typeof body === 'string' ? body : Array.isArray(body.message) ? body.message.join('; ') : (body.message ?? exception.message);
+      const body = exception.getResponse() as
+        string | { message?: string | string[]; error?: string; code?: string };
+      const message =
+        typeof body === 'string'
+          ? body
+          : Array.isArray(body.message)
+            ? body.message.join('; ')
+            : (body.message ?? exception.message);
       const code = (typeof body === 'object' && body.code) || httpCode(status);
       return { status, code, message };
     }
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2002':
-          return { status: 409, code: 'UNIQUE_CONSTRAINT', message: 'A record with the same unique value already exists', details: { target: exception.meta?.target } };
+          return {
+            status: 409,
+            code: 'UNIQUE_CONSTRAINT',
+            message: 'A record with the same unique value already exists',
+            details: { target: exception.meta?.target },
+          };
         case 'P2025':
           return { status: 404, code: 'NOT_FOUND', message: 'Record not found' };
         case 'P2003':
           return { status: 400, code: 'INVALID_REFERENCE', message: 'A referenced record does not exist' };
         case 'P2034':
-          return { status: 409, code: 'CONCURRENT_MODIFICATION', message: 'The resource was modified concurrently; please retry' };
+          return {
+            status: 409,
+            code: 'CONCURRENT_MODIFICATION',
+            message: 'The resource was modified concurrently; please retry',
+          };
       }
     }
-    if (exception instanceof Prisma.PrismaClientUnknownRequestError || exception instanceof Prisma.PrismaClientKnownRequestError) {
+    if (
+      exception instanceof Prisma.PrismaClientUnknownRequestError ||
+      exception instanceof Prisma.PrismaClientKnownRequestError
+    ) {
       const msg = exception.message;
       if (msg.includes('violates check constraint')) {
-        return { status: 422, code: 'CONSTRAINT_VIOLATION', message: 'The request violates a data integrity rule' };
+        return {
+          status: 422,
+          code: 'CONSTRAINT_VIOLATION',
+          message: 'The request violates a data integrity rule',
+        };
       }
     }
     if (exception instanceof SyntaxError && 'body' in (exception as object)) {
       return { status: 400, code: 'MALFORMED_JSON', message: 'Request body is not valid JSON' };
     }
-    return { status: HttpStatus.INTERNAL_SERVER_ERROR, code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' };
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected error occurred',
+    };
   }
 }
 

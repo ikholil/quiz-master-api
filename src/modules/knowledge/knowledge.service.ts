@@ -42,41 +42,85 @@ export class KnowledgeService {
   // ───────── Admin ─────────
 
   async create(dto: CreateKnowledgeSourceDto, actorId: string, ctx: RequestContext) {
-    if (!dto.fileId && !dto.rawText) throw AppError.badRequest('CONTENT_REQUIRED', 'Provide fileId or rawText');
+    if (!dto.fileId && !dto.rawText)
+      throw AppError.badRequest('CONTENT_REQUIRED', 'Provide fileId or rawText');
     let mimeType = dto.mimeType ?? 'text/plain';
     if (dto.fileId) {
       const file = await this.prisma.storedFile.findUnique({ where: { id: dto.fileId } });
-      if (!file || file.purpose !== 'KNOWLEDGE') throw AppError.badRequest('INVALID_FILE', 'Upload the document with purpose KNOWLEDGE first');
+      if (!file || file.purpose !== 'KNOWLEDGE')
+        throw AppError.badRequest('INVALID_FILE', 'Upload the document with purpose KNOWLEDGE first');
       mimeType = file.mimeType;
     }
     if (dto.visibility === KnowledgeVisibility.ENTITLED && !dto.requiredFeature) {
       throw AppError.badRequest('FEATURE_REQUIRED', 'ENTITLED sources need requiredFeature');
     }
-    const source = await this.prisma.knowledgeSource.create({ data: { ...dto, mimeType, createdById: actorId, status: KnowledgeSourceStatus.PENDING_REVIEW } });
-    await this.audit.record({ actorId, action: 'knowledge.create', entityType: 'KnowledgeSource', entityId: source.id, after: { title: dto.title }, ctx });
+    const source = await this.prisma.knowledgeSource.create({
+      data: { ...dto, mimeType, createdById: actorId, status: KnowledgeSourceStatus.PENDING_REVIEW },
+    });
+    await this.audit.record({
+      actorId,
+      action: 'knowledge.create',
+      entityType: 'KnowledgeSource',
+      entityId: source.id,
+      after: { title: dto.title },
+      ctx,
+    });
     return source;
   }
 
   async update(id: string, dto: UpdateKnowledgeSourceDto, actorId: string, ctx: RequestContext) {
     const s = await this.get(id);
     const updated = await this.prisma.knowledgeSource.update({ where: { id: s.id }, data: dto });
-    await this.audit.record({ actorId, action: 'knowledge.update', entityType: 'KnowledgeSource', entityId: id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'knowledge.update',
+      entityType: 'KnowledgeSource',
+      entityId: id,
+      after: dto,
+      ctx,
+    });
     return updated;
   }
 
   /** Only approved content is ever indexed and retrievable. Approval enqueues background indexing. */
   async approve(id: string, actorId: string, ctx: RequestContext) {
     const s = await this.get(id);
-    if (s.createdById === actorId) throw AppError.forbidden('Authors cannot approve their own sources', 'SELF_REVIEW_FORBIDDEN');
-    if (!([KnowledgeSourceStatus.PENDING_REVIEW, KnowledgeSourceStatus.FAILED] as KnowledgeSourceStatus[]).includes(s.status)) {
+    if (s.createdById === actorId)
+      throw AppError.forbidden('Authors cannot approve their own sources', 'SELF_REVIEW_FORBIDDEN');
+    if (
+      !(
+        [KnowledgeSourceStatus.PENDING_REVIEW, KnowledgeSourceStatus.FAILED] as KnowledgeSourceStatus[]
+      ).includes(s.status)
+    ) {
       throw AppError.conflict('INVALID_TRANSITION', `Cannot approve a source in ${s.status}`);
     }
     await this.prisma.$transaction([
-      this.prisma.knowledgeSource.update({ where: { id }, data: { status: KnowledgeSourceStatus.APPROVED, approvedById: actorId, approvedAt: new Date(), error: null } }),
-      this.prisma.contentReview.create({ data: { entityType: ReviewEntityType.KNOWLEDGE_SOURCE, entityId: id, reviewerId: actorId, decision: 'APPROVED' } }),
+      this.prisma.knowledgeSource.update({
+        where: { id },
+        data: {
+          status: KnowledgeSourceStatus.APPROVED,
+          approvedById: actorId,
+          approvedAt: new Date(),
+          error: null,
+        },
+      }),
+      this.prisma.contentReview.create({
+        data: {
+          entityType: ReviewEntityType.KNOWLEDGE_SOURCE,
+          entityId: id,
+          reviewerId: actorId,
+          decision: 'APPROVED',
+        },
+      }),
     ]);
     await this.queue.add(JOBS.INDEX_SOURCE, { sourceId: id }, { jobId: `index-${id}-${Date.now()}` });
-    await this.audit.record({ actorId, action: 'knowledge.approve', entityType: 'KnowledgeSource', entityId: id, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'knowledge.approve',
+      entityType: 'KnowledgeSource',
+      entityId: id,
+      ctx,
+    });
     return { id, status: KnowledgeSourceStatus.APPROVED, indexing: 'queued' };
   }
 
@@ -84,7 +128,13 @@ export class KnowledgeService {
     const s = await this.get(id);
     if (!s.approvedAt) throw AppError.conflict('NOT_APPROVED', 'Approve the source first');
     await this.queue.add(JOBS.INDEX_SOURCE, { sourceId: id }, { jobId: `index-${id}-${Date.now()}` });
-    await this.audit.record({ actorId, action: 'knowledge.reindex', entityType: 'KnowledgeSource', entityId: id, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'knowledge.reindex',
+      entityType: 'KnowledgeSource',
+      entityId: id,
+      ctx,
+    });
     return { id, indexing: 'queued' };
   }
 
@@ -92,16 +142,35 @@ export class KnowledgeService {
     await this.get(id);
     await this.prisma.$transaction([
       this.prisma.documentChunk.deleteMany({ where: { sourceId: id } }),
-      this.prisma.knowledgeSource.update({ where: { id }, data: { status: KnowledgeSourceStatus.ARCHIVED, chunkCount: 0 } }),
+      this.prisma.knowledgeSource.update({
+        where: { id },
+        data: { status: KnowledgeSourceStatus.ARCHIVED, chunkCount: 0 },
+      }),
     ]);
-    await this.audit.record({ actorId, action: 'knowledge.archive', entityType: 'KnowledgeSource', entityId: id, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'knowledge.archive',
+      entityType: 'KnowledgeSource',
+      entityId: id,
+      ctx,
+    });
     return { id, status: KnowledgeSourceStatus.ARCHIVED };
   }
 
   async list(q: KnowledgeQueryDto) {
-    const where: Prisma.KnowledgeSourceWhereInput = { status: q.status, examId: q.examId, visibility: q.visibility, title: q.q ? { contains: q.q, mode: 'insensitive' } : undefined };
+    const where: Prisma.KnowledgeSourceWhereInput = {
+      status: q.status,
+      examId: q.examId,
+      visibility: q.visibility,
+      title: q.q ? { contains: q.q, mode: 'insensitive' } : undefined,
+    };
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.knowledgeSource.findMany({ where, orderBy: { updatedAt: 'desc' }, ...pageArgs(q), omit: { rawText: true } }),
+      this.prisma.knowledgeSource.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        ...pageArgs(q),
+        omit: { rawText: true },
+      }),
       this.prisma.knowledgeSource.count({ where }),
     ]);
     return PageResult.of(items, total, q);
@@ -118,11 +187,19 @@ export class KnowledgeService {
   async index(sourceId: string): Promise<number> {
     const source = await this.prisma.knowledgeSource.findUnique({ where: { id: sourceId } });
     if (!source || !source.approvedAt || source.status === KnowledgeSourceStatus.ARCHIVED) return 0;
-    await this.prisma.knowledgeSource.update({ where: { id: sourceId }, data: { status: KnowledgeSourceStatus.INDEXING, error: null } });
+    await this.prisma.knowledgeSource.update({
+      where: { id: sourceId },
+      data: { status: KnowledgeSourceStatus.INDEXING, error: null },
+    });
     try {
-      const raw = source.fileId ? (await this.files.readBuffer(source.fileId)).body.toString('utf8') : source.rawText ?? '';
+      const raw = source.fileId
+        ? (await this.files.readBuffer(source.fileId)).body.toString('utf8')
+        : (source.rawText ?? '');
       const text = extractText(source.mimeType, raw);
-      if (text === null) throw new Error(`Unsupported format ${source.mimeType}: upload the document as text, Markdown or HTML`);
+      if (text === null)
+        throw new Error(
+          `Unsupported format ${source.mimeType}: upload the document as text, Markdown or HTML`,
+        );
       const chunks = chunkText(text);
       if (!chunks.length) throw new Error('Document contains no text');
 
@@ -130,11 +207,20 @@ export class KnowledgeService {
       await this.prisma.documentChunk.deleteMany({ where: { sourceId } });
       for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
         const batch = chunks.slice(i, i + EMBED_BATCH);
-        const emb = await this.gateway.embed(batch.map((c) => (c.heading ? `${c.heading}\n${c.content}` : c.content)), { feature: 'knowledge.index' });
+        const emb = await this.gateway.embed(
+          batch.map((c) => (c.heading ? `${c.heading}\n${c.content}` : c.content)),
+          { feature: 'knowledge.index' },
+        );
         await this.prisma.$transaction(async (tx) => {
           for (const [j, c] of batch.entries()) {
             const chunk = await tx.documentChunk.create({
-              data: { sourceId, ordinal: c.ordinal, content: c.content, tokenCount: c.tokenCount, metadata: { heading: c.heading ?? null } },
+              data: {
+                sourceId,
+                ordinal: c.ordinal,
+                content: c.content,
+                tokenCount: c.tokenCount,
+                metadata: { heading: c.heading ?? null },
+              },
             });
             const literal = `[${emb.vectors[j].join(',')}]`;
             await tx.$executeRaw`INSERT INTO chunk_embeddings ("chunkId", provider, model, dimensions, embedding)
@@ -149,7 +235,10 @@ export class KnowledgeService {
       this.logger.log(`Indexed ${source.title}: ${chunks.length} chunks with ${model}`);
       return chunks.length;
     } catch (err) {
-      await this.prisma.knowledgeSource.update({ where: { id: sourceId }, data: { status: KnowledgeSourceStatus.FAILED, error: (err as Error).message.slice(0, 500) } });
+      await this.prisma.knowledgeSource.update({
+        where: { id: sourceId },
+        data: { status: KnowledgeSourceStatus.FAILED, error: (err as Error).message.slice(0, 500) },
+      });
       throw err;
     }
   }
@@ -160,13 +249,32 @@ export class KnowledgeService {
    * Vector retrieval restricted to indexed, approved sources the user may see (visibility + entitlements),
    * optionally filtered by exam/topic. Authoritative sources get a small ranking boost.
    */
-  async retrieve(query: string, opts: { userId: string; examId?: string | null; topicId?: string | null; limit?: number; minScore?: number }): Promise<RetrievedChunk[]> {
+  async retrieve(
+    query: string,
+    opts: {
+      userId: string;
+      examId?: string | null;
+      topicId?: string | null;
+      limit?: number;
+      minScore?: number;
+    },
+  ): Promise<RetrievedChunk[]> {
     const ents = await this.entitlements.getActive(opts.userId);
     const features = ents.map((e) => e.featureKey);
     const emb = await this.gateway.embed([query], { userId: opts.userId, feature: 'knowledge.retrieve' });
     const literal = `[${emb.vectors[0].join(',')}]`;
     const limit = Math.min(opts.limit ?? 6, 20);
-    const rows = await this.prisma.$queryRaw<Array<{ chunkId: string; sourceId: string; title: string; content: string; distance: number; isAuthoritative: boolean; sourceUrl: string | null }>>`
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        chunkId: string;
+        sourceId: string;
+        title: string;
+        content: string;
+        distance: number;
+        isAuthoritative: boolean;
+        sourceUrl: string | null;
+      }>
+    >`
       SELECT c.id AS "chunkId", s.id AS "sourceId", s.title, c.content, s."isAuthoritative", s."sourceUrl",
              (e.embedding <=> ${literal}::vector) AS distance
         FROM chunk_embeddings e

@@ -1,6 +1,14 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import { Payment, PaymentPurpose, PaymentStatus, PaymentTransactionType, Prisma, PublishStatus, RefundStatus } from '@prisma/client';
+import {
+  Payment,
+  PaymentPurpose,
+  PaymentStatus,
+  PaymentTransactionType,
+  Prisma,
+  PublishStatus,
+  RefundStatus,
+} from '@prisma/client';
 import { Queue } from 'bullmq';
 import type Redis from 'ioredis';
 import { randomBytes } from 'node:crypto';
@@ -44,8 +52,11 @@ export class PaymentsService {
     @InjectQueue(QUEUES.PAYMENTS) private readonly queue: Queue,
   ) {
     const p = cfg.payments;
-    if (cfg.env !== 'production') this.register(new SandboxPaymentProvider(p.sandboxWebhookSecret, redis, cfg.publicBaseUrl));
-    this.register(new SslCommerzProvider(p.sslcommerz.storeId, p.sslcommerz.storePassword, p.sslcommerz.sandbox));
+    if (cfg.env !== 'production')
+      this.register(new SandboxPaymentProvider(p.sandboxWebhookSecret, redis, cfg.publicBaseUrl));
+    this.register(
+      new SslCommerzProvider(p.sslcommerz.storeId, p.sslcommerz.storePassword, p.sslcommerz.sandbox),
+    );
   }
 
   register(provider: PaymentProvider): void {
@@ -53,22 +64,33 @@ export class PaymentsService {
   }
 
   availableProviders() {
-    return [...this.providers.values()].filter((p) => p.isConfigured()).map((p) => ({ name: p.name, isDefault: p.name === this.cfg.payments.defaultProvider }));
+    return [...this.providers.values()]
+      .filter((p) => p.isConfigured())
+      .map((p) => ({ name: p.name, isDefault: p.name === this.cfg.payments.defaultProvider }));
   }
 
   private provider(name: string): PaymentProvider {
     const p = this.providers.get(name);
-    if (!p || !p.isConfigured()) throw AppError.badRequest('PAYMENT_PROVIDER_UNAVAILABLE', `Payment provider "${name}" is not available`);
+    if (!p || !p.isConfigured())
+      throw AppError.badRequest(
+        'PAYMENT_PROVIDER_UNAVAILABLE',
+        `Payment provider "${name}" is not available`,
+      );
     return p;
   }
 
   /** Amount and currency always come from the server-side catalogue, never from the client. */
   async initiate(user: AuthUser, dto: InitiatePaymentDto, idempotencyKey?: string) {
     if (idempotencyKey) {
-      const existing = await this.prisma.payment.findUnique({ where: { userId_idempotencyKey: { userId: user.id, idempotencyKey } } });
+      const existing = await this.prisma.payment.findUnique({
+        where: { userId_idempotencyKey: { userId: user.id, idempotencyKey } },
+      });
       if (existing) {
         if (existing.referenceId !== dto.referenceId || existing.purpose !== dto.purpose) {
-          throw AppError.conflict('IDEMPOTENCY_KEY_REUSED', 'This Idempotency-Key was used for a different purchase');
+          throw AppError.conflict(
+            'IDEMPOTENCY_KEY_REUSED',
+            'This Idempotency-Key was used for a different purchase',
+          );
         }
         return this.view(existing);
       }
@@ -88,14 +110,20 @@ export class PaymentsService {
         amountMinor,
         currency,
         idempotencyKey,
-        transactions: { create: { type: PaymentTransactionType.INITIATE, status: PaymentStatus.INITIATED, amountMinor } },
+        transactions: {
+          create: { type: PaymentTransactionType.INITIATE, status: PaymentStatus.INITIATED, amountMinor },
+        },
       },
     });
 
     try {
       const ipnUrl = `${this.cfg.publicBaseUrl}/api/v1/payments/webhooks/${provider.name}`;
       const result = await provider.initiate(payment, {
-        customer: { name: profile?.profile?.fullName ?? 'Student', email: profile?.email, phone: profile?.phone?.replace('+88', '') },
+        customer: {
+          name: profile?.profile?.fullName ?? 'Student',
+          email: profile?.email,
+          phone: profile?.phone?.replace('+88', ''),
+        },
         productName,
         successUrl: `${this.cfg.payments.successRedirectUrl}?paymentId=${payment.id}`,
         failUrl: `${this.cfg.payments.failRedirectUrl}?paymentId=${payment.id}`,
@@ -106,15 +134,31 @@ export class PaymentsService {
         where: { id: payment.id },
         data: {
           status: PaymentStatus.PENDING,
-          metadata: { redirectUrl: result.redirectUrl, sessionRef: result.providerRef ?? null } as Prisma.InputJsonValue,
-          transactions: { create: { type: PaymentTransactionType.INITIATE, status: PaymentStatus.PENDING, payload: sanitizePayload(result.raw ?? {}) as Prisma.InputJsonValue } },
+          metadata: {
+            redirectUrl: result.redirectUrl,
+            sessionRef: result.providerRef ?? null,
+          } as Prisma.InputJsonValue,
+          transactions: {
+            create: {
+              type: PaymentTransactionType.INITIATE,
+              status: PaymentStatus.PENDING,
+              payload: sanitizePayload(result.raw ?? {}) as Prisma.InputJsonValue,
+            },
+          },
         },
       });
       return this.view(updated);
     } catch (err) {
-      await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.FAILED, failureReason: (err as Error).message.slice(0, 300) } });
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.FAILED, failureReason: (err as Error).message.slice(0, 300) },
+      });
       this.logger.error(`Payment initiation ${payment.id} failed: ${(err as Error).message}`);
-      throw new AppError('PAYMENT_INITIATION_FAILED', 'Could not start the payment. Please try again.', HttpStatus.BAD_GATEWAY);
+      throw new AppError(
+        'PAYMENT_INITIATION_FAILED',
+        'Could not start the payment. Please try again.',
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 
@@ -122,7 +166,12 @@ export class PaymentsService {
    * Webhook entry point: verifies authenticity, records the event once (unique provider+eventId) and queues
    * confirmation. Duplicate deliveries are acknowledged without re-processing.
    */
-  async receiveWebhook(providerName: string, headers: Record<string, string | string[] | undefined>, rawBody: Buffer | undefined, body: Record<string, unknown>) {
+  async receiveWebhook(
+    providerName: string,
+    headers: Record<string, string | string[] | undefined>,
+    rawBody: Buffer | undefined,
+    body: Record<string, unknown>,
+  ) {
     const provider = this.provider(providerName);
     let event;
     try {
@@ -138,13 +187,22 @@ export class PaymentsService {
     if (!payment || payment.provider !== providerName) throw AppError.notFound('Payment');
     try {
       await this.prisma.paymentWebhookEvent.create({
-        data: { provider: providerName, eventId: event.eventId, paymentId: payment.id, payload: sanitizePayload(event.raw) as Prisma.InputJsonValue },
+        data: {
+          provider: providerName,
+          eventId: event.eventId,
+          paymentId: payment.id,
+          payload: sanitizePayload(event.raw) as Prisma.InputJsonValue,
+        },
       });
     } catch (err) {
       if ((err as { code?: string }).code === 'P2002') return { received: true, duplicate: true };
       throw err;
     }
-    await this.queue.add(JOBS.PROCESS_WEBHOOK, { paymentId: payment.id, provider: providerName, eventId: event.eventId }, { jobId: `webhook-${providerName}-${event.eventId}`.replace(/[^A-Za-z0-9_-]/g, "-") });
+    await this.queue.add(
+      JOBS.PROCESS_WEBHOOK,
+      { paymentId: payment.id, provider: providerName, eventId: event.eventId },
+      { jobId: `webhook-${providerName}-${event.eventId}`.replace(/[^A-Za-z0-9_-]/g, '-') },
+    );
     return { received: true, duplicate: false };
   }
 
@@ -155,18 +213,30 @@ export class PaymentsService {
   async confirm(paymentId: string, source: 'webhook' | 'client' | 'reconcile'): Promise<Payment> {
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
     if (!payment) throw AppError.notFound('Payment');
-    if (payment.status !== PaymentStatus.PENDING && payment.status !== PaymentStatus.INITIATED) return payment;
+    if (payment.status !== PaymentStatus.PENDING && payment.status !== PaymentStatus.INITIATED)
+      return payment;
     const provider = this.provider(payment.provider);
     const result = await provider.verify(payment);
 
     if (result.status === 'PENDING') {
-      await this.prisma.paymentTransaction.create({ data: { paymentId, type: PaymentTransactionType.VERIFY, status: PaymentStatus.PENDING, payload: { source } } });
+      await this.prisma.paymentTransaction.create({
+        data: {
+          paymentId,
+          type: PaymentTransactionType.VERIFY,
+          status: PaymentStatus.PENDING,
+          payload: { source },
+        },
+      });
       return payment;
     }
 
-    const amountOk = result.amountMinor === payment.amountMinor && (result.currency ?? payment.currency) === payment.currency;
+    const amountOk =
+      result.amountMinor === payment.amountMinor &&
+      (result.currency ?? payment.currency) === payment.currency;
     if (result.status === 'SUCCEEDED' && !amountOk) {
-      this.logger.error(`Amount mismatch for payment ${paymentId}: expected ${payment.amountMinor}, provider reported ${result.amountMinor}`);
+      this.logger.error(
+        `Amount mismatch for payment ${paymentId}: expected ${payment.amountMinor}, provider reported ${result.amountMinor}`,
+      );
     }
     const success = result.status === 'SUCCEEDED' && amountOk;
 
@@ -174,18 +244,44 @@ export class PaymentsService {
       const res = await tx.payment.updateMany({
         where: { id: paymentId, status: { in: [PaymentStatus.PENDING, PaymentStatus.INITIATED] } },
         data: success
-          ? { status: PaymentStatus.SUCCEEDED, paidAt: new Date(), providerRef: result.providerRef ?? payment.providerRef, metadata: { ...((payment.metadata as object) ?? {}), ...sanitizePayload(result.raw ?? {}), bank_tran_id: (result.raw as { bank_tran_id?: string } | undefined)?.bank_tran_id } as Prisma.InputJsonValue }
-          : { status: PaymentStatus.FAILED, failureReason: result.status === 'SUCCEEDED' ? 'AMOUNT_MISMATCH' : 'PROVIDER_DECLINED' },
+          ? {
+              status: PaymentStatus.SUCCEEDED,
+              paidAt: new Date(),
+              providerRef: result.providerRef ?? payment.providerRef,
+              metadata: {
+                ...((payment.metadata as object) ?? {}),
+                ...sanitizePayload(result.raw ?? {}),
+                bank_tran_id: (result.raw as { bank_tran_id?: string } | undefined)?.bank_tran_id,
+              } as Prisma.InputJsonValue,
+            }
+          : {
+              status: PaymentStatus.FAILED,
+              failureReason: result.status === 'SUCCEEDED' ? 'AMOUNT_MISMATCH' : 'PROVIDER_DECLINED',
+            },
       });
       await tx.paymentTransaction.create({
-        data: { paymentId, type: source === 'webhook' ? PaymentTransactionType.WEBHOOK : source === 'reconcile' ? PaymentTransactionType.RECONCILE : PaymentTransactionType.VERIFY, status: success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED, amountMinor: result.amountMinor, payload: sanitizePayload(result.raw ?? {}) as Prisma.InputJsonValue },
+        data: {
+          paymentId,
+          type:
+            source === 'webhook'
+              ? PaymentTransactionType.WEBHOOK
+              : source === 'reconcile'
+                ? PaymentTransactionType.RECONCILE
+                : PaymentTransactionType.VERIFY,
+          status: success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED,
+          amountMinor: result.amountMinor,
+          payload: sanitizePayload(result.raw ?? {}) as Prisma.InputJsonValue,
+        },
       });
       const fresh = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
       if (res.count === 1 && success) await this.fulfil(tx, fresh);
       return fresh;
     });
 
-    await this.prisma.paymentWebhookEvent.updateMany({ where: { paymentId, processedAt: null }, data: { processedAt: new Date() } });
+    await this.prisma.paymentWebhookEvent.updateMany({
+      where: { paymentId, processedAt: null },
+      data: { processedAt: new Date() },
+    });
     if (updated.status === PaymentStatus.SUCCEEDED) {
       await this.entitlements.invalidate(updated.userId);
       await this.notifications.notify(updated.userId, {
@@ -201,7 +297,8 @@ export class PaymentsService {
   }
 
   private async fulfil(tx: Tx, payment: Payment) {
-    if (payment.purpose === PaymentPurpose.SUBSCRIPTION) await this.subscriptions.activateFromPayment(tx, payment);
+    if (payment.purpose === PaymentPurpose.SUBSCRIPTION)
+      await this.subscriptions.activateFromPayment(tx, payment);
     else await this.courses.fulfilFromPayment(tx, payment);
   }
 
@@ -223,19 +320,32 @@ export class PaymentsService {
       this.prisma.payment.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, ...pageArgs(q) }),
       this.prisma.payment.count({ where: { userId } }),
     ]);
-    return PageResult.of(rows.map((r) => this.view(r)), total, q);
+    return PageResult.of(
+      rows.map((r) => this.view(r)),
+      total,
+      q,
+    );
   }
 
   /** Scheduled: re-verify stale pending payments (missed webhooks) and expire abandoned ones. */
   async reconcile(): Promise<{ checked: number; expired: number }> {
     const now = Date.now();
     const stale = await this.prisma.payment.findMany({
-      where: { status: PaymentStatus.PENDING, createdAt: { lt: new Date(now - 10 * 60_000), gt: new Date(now - PENDING_EXPIRY_MS) } },
+      where: {
+        status: PaymentStatus.PENDING,
+        createdAt: { lt: new Date(now - 10 * 60_000), gt: new Date(now - PENDING_EXPIRY_MS) },
+      },
       take: 200,
     });
-    for (const p of stale) await this.confirm(p.id, 'reconcile').catch((e: Error) => this.logger.warn(`Reconcile ${p.id}: ${e.message}`));
+    for (const p of stale)
+      await this.confirm(p.id, 'reconcile').catch((e: Error) =>
+        this.logger.warn(`Reconcile ${p.id}: ${e.message}`),
+      );
     const expired = await this.prisma.payment.updateMany({
-      where: { status: { in: [PaymentStatus.PENDING, PaymentStatus.INITIATED] }, createdAt: { lte: new Date(now - PENDING_EXPIRY_MS) } },
+      where: {
+        status: { in: [PaymentStatus.PENDING, PaymentStatus.INITIATED] },
+        createdAt: { lte: new Date(now - PENDING_EXPIRY_MS) },
+      },
       data: { status: PaymentStatus.CANCELLED, failureReason: 'EXPIRED' },
     });
     return { checked: stale.length, expired: expired.count };
@@ -244,38 +354,93 @@ export class PaymentsService {
   async refund(paymentId: string, dto: RefundDto, actor: AuthUser, ctx: RequestContext) {
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
     if (!payment) throw AppError.notFound('Payment');
-    if (!([PaymentStatus.SUCCEEDED, PaymentStatus.PARTIALLY_REFUNDED] as PaymentStatus[]).includes(payment.status)) {
+    if (
+      !([PaymentStatus.SUCCEEDED, PaymentStatus.PARTIALLY_REFUNDED] as PaymentStatus[]).includes(
+        payment.status,
+      )
+    ) {
       throw AppError.conflict('NOT_REFUNDABLE', 'Only successful payments can be refunded');
     }
     const amount = dto.amountMinor ?? payment.amountMinor - payment.refundedMinor;
-    if (amount <= 0 || payment.refundedMinor + amount > payment.amountMinor) throw AppError.badRequest('INVALID_REFUND_AMOUNT', 'Refund exceeds the refundable amount');
+    if (amount <= 0 || payment.refundedMinor + amount > payment.amountMinor)
+      throw AppError.badRequest('INVALID_REFUND_AMOUNT', 'Refund exceeds the refundable amount');
     const provider = this.provider(payment.provider);
-    if (!provider.refund) throw AppError.badRequest('REFUND_UNSUPPORTED', 'This provider does not support API refunds');
+    if (!provider.refund)
+      throw AppError.badRequest('REFUND_UNSUPPORTED', 'This provider does not support API refunds');
 
-    const refund = await this.prisma.refund.create({ data: { paymentId, amountMinor: amount, reason: dto.reason, requestedById: actor.id, status: RefundStatus.PROCESSING } });
+    const refund = await this.prisma.refund.create({
+      data: {
+        paymentId,
+        amountMinor: amount,
+        reason: dto.reason,
+        requestedById: actor.id,
+        status: RefundStatus.PROCESSING,
+      },
+    });
     try {
       const res = await provider.refund(payment, amount, dto.reason);
       const full = payment.refundedMinor + amount === payment.amountMinor;
       await this.prisma.$transaction(async (tx) => {
-        await tx.refund.update({ where: { id: refund.id }, data: { status: res.status === 'COMPLETED' ? RefundStatus.COMPLETED : RefundStatus.PROCESSING, providerRef: res.providerRef, processedAt: new Date() } });
-        await tx.payment.update({ where: { id: paymentId }, data: { refundedMinor: { increment: amount }, status: full ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED } });
-        await tx.paymentTransaction.create({ data: { paymentId, type: PaymentTransactionType.REFUND, status: full ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED, amountMinor: amount } });
+        await tx.refund.update({
+          where: { id: refund.id },
+          data: {
+            status: res.status === 'COMPLETED' ? RefundStatus.COMPLETED : RefundStatus.PROCESSING,
+            providerRef: res.providerRef,
+            processedAt: new Date(),
+          },
+        });
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: {
+            refundedMinor: { increment: amount },
+            status: full ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED,
+          },
+        });
+        await tx.paymentTransaction.create({
+          data: {
+            paymentId,
+            type: PaymentTransactionType.REFUND,
+            status: full ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED,
+            amountMinor: amount,
+          },
+        });
         if (full && !dto.keepAccess) {
-          if (payment.purpose === PaymentPurpose.SUBSCRIPTION) await this.subscriptions.revokeForPayment(tx, paymentId);
+          if (payment.purpose === PaymentPurpose.SUBSCRIPTION)
+            await this.subscriptions.revokeForPayment(tx, paymentId);
           else await this.courses.revokeForPayment(tx, paymentId);
         }
-        await this.audit.record({ actorId: actor.id, action: 'payment.refund', entityType: 'Payment', entityId: paymentId, after: { amount, reason: dto.reason, full }, ctx }, tx);
+        await this.audit.record(
+          {
+            actorId: actor.id,
+            action: 'payment.refund',
+            entityType: 'Payment',
+            entityId: paymentId,
+            after: { amount, reason: dto.reason, full },
+            ctx,
+          },
+          tx,
+        );
       });
       await this.entitlements.invalidate(payment.userId);
       return this.prisma.refund.findUniqueOrThrow({ where: { id: refund.id } });
     } catch (err) {
       await this.prisma.refund.update({ where: { id: refund.id }, data: { status: RefundStatus.FAILED } });
-      throw new AppError('REFUND_FAILED', `Refund failed: ${(err as Error).message.slice(0, 200)}`, HttpStatus.BAD_GATEWAY);
+      throw new AppError(
+        'REFUND_FAILED',
+        `Refund failed: ${(err as Error).message.slice(0, 200)}`,
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 
   async adminList(q: AdminPaymentQueryDto) {
-    const where: Prisma.PaymentWhereInput = { status: q.status, userId: q.userId, provider: q.provider, purpose: q.purpose, merchantTxnId: q.merchantTxnId };
+    const where: Prisma.PaymentWhereInput = {
+      status: q.status,
+      userId: q.userId,
+      provider: q.provider,
+      purpose: q.purpose,
+      merchantTxnId: q.merchantTxnId,
+    };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.payment.findMany({ where, orderBy: { createdAt: q.sortOrder }, ...pageArgs(q) }),
       this.prisma.payment.count({ where }),
@@ -284,20 +449,35 @@ export class PaymentsService {
   }
 
   async adminGet(id: string) {
-    const p = await this.prisma.payment.findUnique({ where: { id }, include: { transactions: { orderBy: { createdAt: 'asc' } }, refunds: true } });
+    const p = await this.prisma.payment.findUnique({
+      where: { id },
+      include: { transactions: { orderBy: { createdAt: 'asc' } }, refunds: true },
+    });
     if (!p) throw AppError.notFound('Payment');
     return p;
   }
 
   private async price(purpose: PaymentPurpose, referenceId: string) {
     if (purpose === PaymentPurpose.SUBSCRIPTION) {
-      const plan = await this.prisma.subscriptionPlan.findFirst({ where: { id: referenceId, isActive: true } });
+      const plan = await this.prisma.subscriptionPlan.findFirst({
+        where: { id: referenceId, isActive: true },
+      });
       if (!plan) throw AppError.notFound('Plan');
-      return { amountMinor: plan.priceMinor, currency: plan.currency, productName: `Subscription: ${plan.name}` };
+      return {
+        amountMinor: plan.priceMinor,
+        currency: plan.currency,
+        productName: `Subscription: ${plan.name}`,
+      };
     }
-    const course = await this.prisma.course.findFirst({ where: { id: referenceId, status: PublishStatus.PUBLISHED } });
+    const course = await this.prisma.course.findFirst({
+      where: { id: referenceId, status: PublishStatus.PUBLISHED },
+    });
     if (!course) throw AppError.notFound('Course');
-    return { amountMinor: course.priceMinor, currency: course.currency, productName: `Course: ${course.title}` };
+    return {
+      amountMinor: course.priceMinor,
+      currency: course.currency,
+      productName: `Course: ${course.title}`,
+    };
   }
 
   private view(p: Payment) {
@@ -311,7 +491,7 @@ export class PaymentsService {
       amountMinor: p.amountMinor,
       currency: p.currency,
       status: p.status,
-      redirectUrl: p.status === PaymentStatus.PENDING ? meta.redirectUrl ?? null : null,
+      redirectUrl: p.status === PaymentStatus.PENDING ? (meta.redirectUrl ?? null) : null,
       paidAt: p.paidAt,
       refundedMinor: p.refundedMinor,
       createdAt: p.createdAt,

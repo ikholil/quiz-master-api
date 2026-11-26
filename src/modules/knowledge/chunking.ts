@@ -27,7 +27,13 @@ export function extractText(mime: string, body: string): string | null {
         .replace(/[ \t]+/g, ' ');
     case 'application/json': {
       const walk = (v: unknown): string[] =>
-        typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(walk) : v && typeof v === 'object' ? Object.values(v).flatMap(walk) : [];
+        typeof v === 'string'
+          ? [v]
+          : Array.isArray(v)
+            ? v.flatMap(walk)
+            : v && typeof v === 'object'
+              ? Object.values(v).flatMap(walk)
+              : [];
       return walk(JSON.parse(body)).join('\n\n');
     }
     default:
@@ -65,7 +71,12 @@ export function chunkText(text: string, maxTokens = 400, overlapTokens = 60): Ch
   const flush = () => {
     if (!buf.length) return;
     const content = buf.join('\n\n');
-    chunks.push({ ordinal: chunks.length, content, tokenCount: estimateTokens(content), heading: bufHeading });
+    chunks.push({
+      ordinal: chunks.length,
+      content,
+      tokenCount: estimateTokens(content),
+      heading: bufHeading,
+    });
     // Overlap: keep trailing units up to overlapTokens.
     const carry: string[] = [];
     let carryTokens = 0;

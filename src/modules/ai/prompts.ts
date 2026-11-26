@@ -14,7 +14,7 @@ export const DEFAULT_PROMPTS: Record<string, { system: string; userTemplate: str
       '- If the sources do not cover the question, you may answer from general knowledge but say that it is not from the course material.',
       '- Never invent or guess official examination dates, application deadlines, eligibility rules, quotas, recruiting notices,',
       '  vacancy numbers or official answer keys. For those, only repeat what an AUTHORITATIVE source states and tell the student',
-      '  to confirm on the recruiting authority\'s official website; if no source states it, say you do not know.',
+      "  to confirm on the recruiting authority's official website; if no source states it, say you do not know.",
       '- Do not claim any question is from an official previous-year paper unless a source says so.',
     ].join('\n'),
     userTemplate: '{{question}}',
@@ -27,7 +27,8 @@ export const DEFAULT_PROMPTS: Record<string, { system: string; userTemplate: str
       'Return ONLY a JSON array, no prose. Each item: {"stem": string, "options": [{"key":"A","text":string}, ...4 items],',
       '"correct": "A"|"B"|"C"|"D", "explanation": string}.',
     ].join('\n'),
-    userTemplate: 'Topic: {{topic}} (subject: {{subject}}). Difficulty: {{difficulty}}. Language: {{language}}. Write {{count}} questions.{{context}}',
+    userTemplate:
+      'Topic: {{topic}} (subject: {{subject}}). Difficulty: {{difficulty}}. Language: {{language}}. Write {{count}} questions.{{context}}',
   },
 };
 

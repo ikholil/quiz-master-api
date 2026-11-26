@@ -8,7 +8,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
-    super({ log: [{ emit: 'event', level: 'warn' }, { emit: 'event', level: 'error' }] });
+    super({
+      log: [
+        { emit: 'event', level: 'warn' },
+        { emit: 'event', level: 'error' },
+      ],
+    });
     (this as unknown as PrismaClient<Prisma.PrismaClientOptions, 'warn' | 'error'>).$on('warn', (e) =>
       this.logger.warn(e.message),
     );
@@ -19,7 +24,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleInit(): Promise<void> {
     // Connection is lazy; this only validates connectivity at boot when DB is reachable.
-    await this.$connect().catch((err: Error) => this.logger.error(`Database connection failed: ${err.message}`));
+    await this.$connect().catch((err: Error) =>
+      this.logger.error(`Database connection failed: ${err.message}`),
+    );
   }
 
   async onModuleDestroy(): Promise<void> {

@@ -1,7 +1,19 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Difficulty } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreateConversationDto {
   @IsOptional() @IsString() @MaxLength(120) title?: string;

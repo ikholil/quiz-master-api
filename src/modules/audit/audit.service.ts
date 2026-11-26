@@ -26,7 +26,10 @@ export function redact(value: unknown, depth = 0): unknown {
   if (typeof value === 'object') {
     if (value instanceof Prisma.Decimal) return value.toString();
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, SENSITIVE_KEYS.test(k) ? '[REDACTED]' : redact(v, depth + 1)]),
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        k,
+        SENSITIVE_KEYS.test(k) ? '[REDACTED]' : redact(v, depth + 1),
+      ]),
     );
   }
   if (typeof value === 'bigint') return value.toString();
@@ -59,7 +62,9 @@ export class AuditService {
       return;
     }
     // Outside a transaction, audit failures must not break the user-facing operation, but must be visible.
-    await client.auditLog.create({ data }).catch((err: Error) => this.logger.error(`Audit write failed: ${err.message}`));
+    await client.auditLog
+      .create({ data })
+      .catch((err: Error) => this.logger.error(`Audit write failed: ${err.message}`));
   }
 
   async list(q: AuditQueryDto) {
@@ -68,7 +73,10 @@ export class AuditService {
       entityType: q.entityType,
       entityId: q.entityId,
       action: q.action ? { startsWith: q.action } : undefined,
-      createdAt: q.from || q.to ? { gte: q.from ? new Date(q.from) : undefined, lte: q.to ? new Date(q.to) : undefined } : undefined,
+      createdAt:
+        q.from || q.to
+          ? { gte: q.from ? new Date(q.from) : undefined, lte: q.to ? new Date(q.to) : undefined }
+          : undefined,
     };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.auditLog.findMany({ where, orderBy: { createdAt: q.sortOrder }, ...pageArgs(q) }),

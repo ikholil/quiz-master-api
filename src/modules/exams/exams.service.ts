@@ -52,7 +52,14 @@ export class ExamsService {
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: { _count: { select: { exams: { where: { status: PublishStatus.PUBLISHED } } } } },
     });
-    return cats.map((c) => ({ id: c.id, slug: c.slug, name: c.name, nameBn: c.nameBn, description: c.description, examCount: c._count.exams }));
+    return cats.map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      name: c.name,
+      nameBn: c.nameBn,
+      description: c.description,
+      examCount: c._count.exams,
+    }));
   }
 
   listAuthorities() {
@@ -82,22 +89,36 @@ export class ExamsService {
       }),
       this.prisma.exam.count({ where }),
     ]);
-    return PageResult.of(rows.map((e) => this.summary(e)), total, q);
+    return PageResult.of(
+      rows.map((e) => this.summary(e)),
+      total,
+      q,
+    );
   }
 
   async getExam(slugOrId: string, userId?: string, admin = false) {
     const isUuid = /^[0-9a-f-]{36}$/i.test(slugOrId);
     const exam = await this.prisma.exam.findFirst({
-      where: { ...(isUuid ? { id: slugOrId } : { slug: slugOrId }), status: admin ? undefined : PublishStatus.PUBLISHED },
+      where: {
+        ...(isUuid ? { id: slugOrId } : { slug: slugOrId }),
+        status: admin ? undefined : PublishStatus.PUBLISHED,
+      },
       include: {
         category: true,
         authority: true,
         stages: { orderBy: { sequence: 'asc' } },
-        syllabusVersions: { where: { isCurrent: true, status: admin ? undefined : PublishStatus.PUBLISHED }, select: { id: true } },
+        syllabusVersions: {
+          where: { isCurrent: true, status: admin ? undefined : PublishStatus.PUBLISHED },
+          select: { id: true },
+        },
       },
     });
     if (!exam) throw AppError.notFound('Exam');
-    const isBookmarked = userId ? !!(await this.prisma.examBookmark.findUnique({ where: { userId_examId: { userId, examId: exam.id } } })) : false;
+    const isBookmarked = userId
+      ? !!(await this.prisma.examBookmark.findUnique({
+          where: { userId_examId: { userId, examId: exam.id } },
+        }))
+      : false;
     return {
       ...this.summary(exam),
       description: exam.description,
@@ -134,7 +155,11 @@ export class ExamsService {
     const papers = await this.prisma.previousYearPaper.findMany({
       where: { examId, status: admin ? undefined : PublishStatus.PUBLISHED },
       orderBy: { year: 'desc' },
-      include: { sources: { select: { _count: { select: { questions: { where: { status: 'PUBLISHED', deletedAt: null } } } } } } },
+      include: {
+        sources: {
+          select: { _count: { select: { questions: { where: { status: 'PUBLISHED', deletedAt: null } } } } },
+        },
+      },
     });
     return papers.map((p) => ({
       id: p.id,
@@ -150,7 +175,11 @@ export class ExamsService {
 
   async bookmark(userId: string, examId: string) {
     await this.assertExam(examId);
-    await this.prisma.examBookmark.upsert({ where: { userId_examId: { userId, examId } }, create: { userId, examId }, update: {} });
+    await this.prisma.examBookmark.upsert({
+      where: { userId_examId: { userId, examId } },
+      create: { userId, examId },
+      update: {},
+    });
     return { bookmarked: true };
   }
 
@@ -172,7 +201,14 @@ export class ExamsService {
 
   async createCategory(dto: CreateCategoryDto, actorId: string, ctx: RequestContext) {
     const c = await this.prisma.examCategory.create({ data: dto });
-    await this.audit.record({ actorId, action: 'catalog.category.create', entityType: 'ExamCategory', entityId: c.id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.category.create',
+      entityType: 'ExamCategory',
+      entityId: c.id,
+      after: dto,
+      ctx,
+    });
     return c;
   }
 
@@ -180,7 +216,15 @@ export class ExamsService {
     const before = await this.prisma.examCategory.findUnique({ where: { id } });
     if (!before) throw AppError.notFound('Category');
     const c = await this.prisma.examCategory.update({ where: { id }, data: dto });
-    await this.audit.record({ actorId, action: 'catalog.category.update', entityType: 'ExamCategory', entityId: id, before, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.category.update',
+      entityType: 'ExamCategory',
+      entityId: id,
+      before,
+      after: dto,
+      ctx,
+    });
     return c;
   }
 
@@ -190,22 +234,48 @@ export class ExamsService {
 
   async createAuthority(dto: CreateAuthorityDto, actorId: string, ctx: RequestContext) {
     const a = await this.prisma.recruitingAuthority.create({ data: dto });
-    await this.audit.record({ actorId, action: 'catalog.authority.create', entityType: 'RecruitingAuthority', entityId: a.id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.authority.create',
+      entityType: 'RecruitingAuthority',
+      entityId: a.id,
+      after: dto,
+      ctx,
+    });
     return a;
   }
 
   async updateAuthority(id: string, dto: Partial<CreateAuthorityDto>, actorId: string, ctx: RequestContext) {
     const { slug: _slug, ...data } = dto;
     const a = await this.prisma.recruitingAuthority.update({ where: { id }, data });
-    await this.audit.record({ actorId, action: 'catalog.authority.update', entityType: 'RecruitingAuthority', entityId: id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.authority.update',
+      entityType: 'RecruitingAuthority',
+      entityId: id,
+      after: dto,
+      ctx,
+    });
     return a;
   }
 
   async createExam(dto: CreateExamDto, actorId: string, ctx: RequestContext) {
     const exam = await this.prisma.exam.create({
-      data: { ...dto, eligibility: json(dto.eligibility), pattern: json(dto.pattern), status: PublishStatus.DRAFT },
+      data: {
+        ...dto,
+        eligibility: json(dto.eligibility),
+        pattern: json(dto.pattern),
+        status: PublishStatus.DRAFT,
+      },
     });
-    await this.audit.record({ actorId, action: 'catalog.exam.create', entityType: 'Exam', entityId: exam.id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.exam.create',
+      entityType: 'Exam',
+      entityId: exam.id,
+      after: dto,
+      ctx,
+    });
     return exam;
   }
 
@@ -220,7 +290,15 @@ export class ExamsService {
       where: { id },
       data: { ...dto, eligibility: json(dto.eligibility), pattern: json(dto.pattern) },
     });
-    await this.audit.record({ actorId, action: 'catalog.exam.update', entityType: 'Exam', entityId: id, before, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.exam.update',
+      entityType: 'Exam',
+      entityId: id,
+      before,
+      after: dto,
+      ctx,
+    });
     return exam;
   }
 
@@ -231,7 +309,14 @@ export class ExamsService {
       create: { ...dto, examId },
       update: dto,
     });
-    await this.audit.record({ actorId, action: 'catalog.stage.upsert', entityType: 'ExamStage', entityId: stage.id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.stage.upsert',
+      entityType: 'ExamStage',
+      entityId: stage.id,
+      after: dto,
+      ctx,
+    });
     return stage;
   }
 
@@ -239,16 +324,34 @@ export class ExamsService {
     const inUse = await this.prisma.mockExamTemplate.count({ where: { stageId } });
     if (inUse) throw AppError.conflict('STAGE_IN_USE', 'Stage is referenced by mock examinations');
     await this.prisma.examStage.delete({ where: { id: stageId } });
-    await this.audit.record({ actorId, action: 'catalog.stage.delete', entityType: 'ExamStage', entityId: stageId, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.stage.delete',
+      entityType: 'ExamStage',
+      entityId: stageId,
+      ctx,
+    });
     return { ok: true };
   }
 
   async createNotice(examId: string, dto: NoticeDto, actorId: string, ctx: RequestContext) {
     await this.assertExam(examId, true);
     const notice = await this.prisma.examNotice.create({
-      data: { ...dto, examId, noticeDate: dto.noticeDate ? parseIsoDate(dto.noticeDate.slice(0, 10)) : undefined, createdById: actorId },
+      data: {
+        ...dto,
+        examId,
+        noticeDate: dto.noticeDate ? parseIsoDate(dto.noticeDate.slice(0, 10)) : undefined,
+        createdById: actorId,
+      },
     });
-    await this.audit.record({ actorId, action: 'catalog.notice.create', entityType: 'ExamNotice', entityId: notice.id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.notice.create',
+      entityType: 'ExamNotice',
+      entityId: notice.id,
+      after: dto,
+      ctx,
+    });
     return notice;
   }
 
@@ -256,26 +359,53 @@ export class ExamsService {
     const notice = await this.prisma.examNotice.findUnique({ where: { id } });
     if (!notice) throw AppError.notFound('Notice');
     if (status === PublishStatus.PUBLISHED && notice.isOfficial && !notice.sourceUrl && !notice.fileId) {
-      throw AppError.badRequest('SOURCE_REQUIRED', 'Official notices must reference the source URL or an uploaded copy');
+      throw AppError.badRequest(
+        'SOURCE_REQUIRED',
+        'Official notices must reference the source URL or an uploaded copy',
+      );
     }
     const updated = await this.prisma.examNotice.update({
       where: { id },
-      data: { status, publishedAt: status === PublishStatus.PUBLISHED ? (notice.publishedAt ?? new Date()) : notice.publishedAt },
+      data: {
+        status,
+        publishedAt:
+          status === PublishStatus.PUBLISHED ? (notice.publishedAt ?? new Date()) : notice.publishedAt,
+      },
     });
-    await this.audit.record({ actorId, action: `catalog.notice.${status.toLowerCase()}`, entityType: 'ExamNotice', entityId: id, ctx });
+    await this.audit.record({
+      actorId,
+      action: `catalog.notice.${status.toLowerCase()}`,
+      entityType: 'ExamNotice',
+      entityId: id,
+      ctx,
+    });
     return updated;
   }
 
   async createPaper(examId: string, dto: PaperDto, actorId: string, ctx: RequestContext) {
     await this.assertExam(examId, true);
     const paper = await this.prisma.previousYearPaper.create({ data: { ...dto, examId } });
-    await this.audit.record({ actorId, action: 'catalog.paper.create', entityType: 'PreviousYearPaper', entityId: paper.id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.paper.create',
+      entityType: 'PreviousYearPaper',
+      entityId: paper.id,
+      after: dto,
+      ctx,
+    });
     return paper;
   }
 
   async updatePaper(id: string, dto: Partial<PaperDto>, actorId: string, ctx: RequestContext) {
     const paper = await this.prisma.previousYearPaper.update({ where: { id }, data: dto });
-    await this.audit.record({ actorId, action: 'catalog.paper.update', entityType: 'PreviousYearPaper', entityId: id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'catalog.paper.update',
+      entityType: 'PreviousYearPaper',
+      entityId: id,
+      after: dto,
+      ctx,
+    });
     return paper;
   }
 

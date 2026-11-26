@@ -34,7 +34,14 @@ export interface AppConfig {
     localPath: string;
     signingSecret: string;
     maxUploadBytes: number;
-    s3: { bucket: string; region: string; endpoint?: string; accessKeyId?: string; secretAccessKey?: string; forcePathStyle: boolean };
+    s3: {
+      bucket: string;
+      region: string;
+      endpoint?: string;
+      accessKeyId?: string;
+      secretAccessKey?: string;
+      forcePathStyle: boolean;
+    };
   };
   ai: {
     providers: string[];
@@ -219,7 +226,8 @@ export function validateConfig(cfg: AppConfig): void {
       }
     }
     if (cfg.corsOrigins.includes('*')) throw new Error('Wildcard CORS origin is not allowed in production');
-    if (cfg.payments.defaultProvider === 'sandbox') throw new Error('Sandbox payment provider cannot be default in production');
+    if (cfg.payments.defaultProvider === 'sandbox')
+      throw new Error('Sandbox payment provider cannot be default in production');
   }
   if (!['local', 's3'].includes(cfg.storage.driver)) throw new Error('STORAGE_DRIVER must be local or s3');
 }

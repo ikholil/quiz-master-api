@@ -30,8 +30,13 @@ export class OkResponse {
 }
 
 /** Documents `{ success: true, data: T, meta }`. */
-export function ApiEnvelope<T extends Type<unknown>>(model: T, opts: { status?: HttpStatus; isArray?: boolean; description?: string } = {}) {
-  const data = opts.isArray ? { type: 'array', items: { $ref: getSchemaPath(model) } } : { $ref: getSchemaPath(model) };
+export function ApiEnvelope<T extends Type<unknown>>(
+  model: T,
+  opts: { status?: HttpStatus; isArray?: boolean; description?: string } = {},
+) {
+  const data = opts.isArray
+    ? { type: 'array', items: { $ref: getSchemaPath(model) } }
+    : { $ref: getSchemaPath(model) };
   return applyDecorators(
     ApiExtraModels(model, ResponseMeta, PaginationMeta, ErrorEnvelope),
     ApiResponse({
@@ -40,7 +45,11 @@ export function ApiEnvelope<T extends Type<unknown>>(model: T, opts: { status?: 
       schema: {
         type: 'object',
         required: ['success', 'data'],
-        properties: { success: { type: 'boolean', example: true }, data, meta: { $ref: getSchemaPath(ResponseMeta) } },
+        properties: {
+          success: { type: 'boolean', example: true },
+          data,
+          meta: { $ref: getSchemaPath(ResponseMeta) },
+        },
       },
     }),
     ApiResponse({ status: 400, description: 'Validation or domain error', type: ErrorEnvelope }),
@@ -61,7 +70,10 @@ export function ApiPaginated<T extends Type<unknown>>(model: T) {
           data: { type: 'array', items: { $ref: getSchemaPath(model) } },
           meta: {
             type: 'object',
-            properties: { requestId: { type: 'string' }, pagination: { $ref: getSchemaPath(PaginationMeta) } },
+            properties: {
+              requestId: { type: 'string' },
+              pagination: { $ref: getSchemaPath(PaginationMeta) },
+            },
           },
         },
       },

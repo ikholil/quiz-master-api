@@ -21,7 +21,9 @@ import {
 import { AuthService } from './auth.service';
 
 // Per-IP limit for credential endpoints (RATE_LIMIT_AUTH_MAX, default 10/min), resolved at request time.
-const AUTH_THROTTLE = { default: { limit: () => Number(process.env.RATE_LIMIT_AUTH_MAX ?? 10), ttl: 60_000 } };
+const AUTH_THROTTLE = {
+  default: { limit: () => Number(process.env.RATE_LIMIT_AUTH_MAX ?? 10), ttl: 60_000 },
+};
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -99,7 +101,11 @@ export class AuthController {
   @Authenticated()
   @Post('password/change')
   @HttpCode(200)
-  changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto, @ReqContext() ctx: RequestContext) {
+  changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ChangePasswordDto,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.auth.changePassword(user.id, user.sessionId, dto, ctx);
   }
 
@@ -113,7 +119,11 @@ export class AuthController {
   @Authenticated()
   @Post('logout-all')
   @HttpCode(200)
-  logoutAll(@CurrentUser() user: AuthUser, @Query('includeCurrent') includeCurrent: string | undefined, @ReqContext() ctx: RequestContext) {
+  logoutAll(
+    @CurrentUser() user: AuthUser,
+    @Query('includeCurrent') includeCurrent: string | undefined,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.auth.logoutAll(user.id, user.sessionId, includeCurrent === 'true', ctx);
   }
 
@@ -126,7 +136,11 @@ export class AuthController {
 
   @Authenticated()
   @Delete('sessions/:id')
-  revokeSession(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @ReqContext() ctx: RequestContext) {
+  revokeSession(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.auth.revokeSession(user.id, id, ctx);
   }
 }

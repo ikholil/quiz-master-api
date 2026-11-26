@@ -57,11 +57,23 @@ export class SubscriptionsService {
           priceMinor: dto.priceMinor,
           durationDays: dto.durationDays,
           sortOrder: dto.sortOrder ?? 0,
-          features: { create: dto.features.map((f) => ({ featureKey: f.featureKey, limitValue: f.limitValue ?? null })) },
+          features: {
+            create: dto.features.map((f) => ({ featureKey: f.featureKey, limitValue: f.limitValue ?? null })),
+          },
         },
         include: { features: true },
       });
-      await this.audit.record({ actorId, action: 'plan.create', entityType: 'SubscriptionPlan', entityId: created.id, after: dto, ctx }, tx);
+      await this.audit.record(
+        {
+          actorId,
+          action: 'plan.create',
+          entityType: 'SubscriptionPlan',
+          entityId: created.id,
+          after: dto,
+          ctx,
+        },
+        tx,
+      );
       return created;
     });
     return SubscriptionsService.planView(plan);
@@ -69,16 +81,40 @@ export class SubscriptionsService {
 
   /** Plan edits apply to future purchases only; existing entitlements keep the terms they were bought with. */
   async updatePlan(id: string, dto: UpdatePlanDto, actorId: string, ctx: RequestContext) {
-    const before = await this.prisma.subscriptionPlan.findUnique({ where: { id }, include: { features: true } });
+    const before = await this.prisma.subscriptionPlan.findUnique({
+      where: { id },
+      include: { features: true },
+    });
     if (!before) throw AppError.notFound('Plan');
     const plan = await this.prisma.$transaction(async (tx) => {
       if (dto.features) {
         await tx.planFeature.deleteMany({ where: { planId: id } });
-        await tx.planFeature.createMany({ data: dto.features.map((f) => ({ planId: id, featureKey: f.featureKey, limitValue: f.limitValue ?? null })) });
+        await tx.planFeature.createMany({
+          data: dto.features.map((f) => ({
+            planId: id,
+            featureKey: f.featureKey,
+            limitValue: f.limitValue ?? null,
+          })),
+        });
       }
       const { features: _f, ...rest } = dto;
-      const updated = await tx.subscriptionPlan.update({ where: { id }, data: rest, include: { features: true } });
-      await this.audit.record({ actorId, action: 'plan.update', entityType: 'SubscriptionPlan', entityId: id, before, after: dto, ctx }, tx);
+      const updated = await tx.subscriptionPlan.update({
+        where: { id },
+        data: rest,
+        include: { features: true },
+      });
+      await this.audit.record(
+        {
+          actorId,
+          action: 'plan.update',
+          entityType: 'SubscriptionPlan',
+          entityId: id,
+          before,
+          after: dto,
+          ctx,
+        },
+        tx,
+      );
       return updated;
     });
     return SubscriptionsService.planView(plan);
@@ -116,7 +152,12 @@ export class SubscriptionsService {
     const now = new Date();
     // Renewal: extend from the end of the latest active subscription of the same plan.
     const current = await tx.userSubscription.findFirst({
-      where: { userId: payment.userId, planId: plan.id, status: SubscriptionStatus.ACTIVE, endsAt: { gt: now } },
+      where: {
+        userId: payment.userId,
+        planId: plan.id,
+        status: SubscriptionStatus.ACTIVE,
+        endsAt: { gt: now },
+      },
       orderBy: { endsAt: 'desc' },
     });
     const startsAt = current?.endsAt ?? now;
@@ -140,7 +181,10 @@ export class SubscriptionsService {
   async revokeForPayment(tx: Tx, paymentId: string): Promise<void> {
     const sub = await tx.userSubscription.findUnique({ where: { paymentId } });
     if (!sub) return;
-    await tx.userSubscription.update({ where: { id: sub.id }, data: { status: SubscriptionStatus.CANCELLED, cancelledAt: new Date() } });
+    await tx.userSubscription.update({
+      where: { id: sub.id },
+      data: { status: SubscriptionStatus.CANCELLED, cancelledAt: new Date() },
+    });
     await this.entitlements.revokeBySource(tx, EntitlementSource.SUBSCRIPTION, sub.id);
   }
 
@@ -148,9 +192,16 @@ export class SubscriptionsService {
   async cancel(userId: string, subscriptionId: string, ctx: RequestContext) {
     const sub = await this.prisma.userSubscription.findFirst({ where: { id: subscriptionId, userId } });
     if (!sub) throw AppError.notFound('Subscription');
-    if (sub.status !== SubscriptionStatus.ACTIVE) throw AppError.badRequest('SUBSCRIPTION_NOT_ACTIVE', 'Subscription is not active');
+    if (sub.status !== SubscriptionStatus.ACTIVE)
+      throw AppError.badRequest('SUBSCRIPTION_NOT_ACTIVE', 'Subscription is not active');
     await this.prisma.userSubscription.update({ where: { id: sub.id }, data: { cancelledAt: new Date() } });
-    await this.audit.record({ actorId: userId, action: 'subscription.cancel', entityType: 'UserSubscription', entityId: sub.id, ctx });
+    await this.audit.record({
+      actorId: userId,
+      action: 'subscription.cancel',
+      entityType: 'UserSubscription',
+      entityId: sub.id,
+      ctx,
+    });
     return { id: sub.id, status: sub.status, endsAt: sub.endsAt };
   }
 
@@ -163,7 +214,10 @@ export class SubscriptionsService {
     });
     for (const s of due) {
       await this.prisma.$transaction(async (tx) => {
-        const res = await tx.userSubscription.updateMany({ where: { id: s.id, status: SubscriptionStatus.ACTIVE }, data: { status: SubscriptionStatus.EXPIRED } });
+        const res = await tx.userSubscription.updateMany({
+          where: { id: s.id, status: SubscriptionStatus.ACTIVE },
+          data: { status: SubscriptionStatus.EXPIRED },
+        });
         if (res.count) await this.entitlements.revokeBySource(tx, EntitlementSource.SUBSCRIPTION, s.id);
       });
       await this.entitlements.invalidate(s.userId);

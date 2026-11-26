@@ -32,7 +32,11 @@ export class BatchAnswerItemDto extends SaveAnswerDto {
 }
 
 export class BatchSaveAnswersDto {
-  @IsArray() @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => BatchAnswerItemDto) answers: BatchAnswerItemDto[];
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => BatchAnswerItemDto)
+  answers: BatchAnswerItemDto[];
 }
 
 export class AttemptQueryDto extends PaginationQueryDto {
@@ -81,7 +85,11 @@ export class AttemptStateResponse {
   @ApiProperty() attemptNumber: number;
   @ApiProperty() startedAt: Date;
   @ApiProperty() expiresAt: Date;
-  @ApiProperty({ description: 'Authoritative server time; clients must derive the countdown from this, not the device clock' }) serverTime: Date;
+  @ApiProperty({
+    description:
+      'Authoritative server time; clients must derive the countdown from this, not the device clock',
+  })
+  serverTime: Date;
   @ApiProperty() remainingSeconds: number;
   @ApiProperty() durationMinutes: number;
   @ApiProperty() totalMarks: number;

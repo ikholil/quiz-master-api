@@ -12,7 +12,9 @@ describe('normalizeBdPhone', () => {
     ['8801912-345678', '+8801912345678'],
     ['০১৭১২৩৪৫৬৭৮', '+8801712345678'],
   ])('%s → %s', (input, out) => expect(normalizeBdPhone(input)).toBe(out));
-  it.each(['01212345678', '1712345678', '0171234567', 'abc'])('rejects %s', (input) => expect(normalizeBdPhone(input)).toBeNull());
+  it.each(['01212345678', '1712345678', '0171234567', 'abc'])('rejects %s', (input) =>
+    expect(normalizeBdPhone(input)).toBeNull(),
+  );
 });
 
 describe('crypto', () => {

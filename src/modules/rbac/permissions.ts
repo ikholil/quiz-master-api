@@ -52,8 +52,15 @@ export const ALL_PERMISSIONS: PermissionKey[] = Object.values(PERMISSIONS);
 
 const P = PERMISSIONS;
 
-export const SYSTEM_ROLES: Record<string, { name: string; description: string; permissions: PermissionKey[] }> = {
-  SUPER_ADMIN: { name: 'Super administrator', description: 'Full platform access', permissions: ALL_PERMISSIONS },
+export const SYSTEM_ROLES: Record<
+  string,
+  { name: string; description: string; permissions: PermissionKey[] }
+> = {
+  SUPER_ADMIN: {
+    name: 'Super administrator',
+    description: 'Full platform access',
+    permissions: ALL_PERMISSIONS,
+  },
   ADMIN: {
     name: 'Administrator',
     description: 'Platform operations without role management',
@@ -106,7 +113,14 @@ export const SYSTEM_ROLES: Record<string, { name: string; description: string; p
   FINANCE: {
     name: 'Finance',
     description: 'Payments, refunds and subscriptions',
-    permissions: [P.ADMIN_ACCESS, P.PAYMENTS_READ, P.PAYMENTS_REFUND, P.SUBSCRIPTIONS_MANAGE, P.PLANS_MANAGE, P.ANALYTICS_READ],
+    permissions: [
+      P.ADMIN_ACCESS,
+      P.PAYMENTS_READ,
+      P.PAYMENTS_REFUND,
+      P.SUBSCRIPTIONS_MANAGE,
+      P.PLANS_MANAGE,
+      P.ANALYTICS_READ,
+    ],
   },
   STUDENT: { name: 'Student', description: 'Default learner role', permissions: [] },
 };

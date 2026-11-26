@@ -22,9 +22,14 @@ export class LoginGuardService {
     const count = Number((await this.redis.get(key)) ?? 0);
     if (count >= this.cfg.auth.loginMaxFailures) {
       const ttl = await this.redis.ttl(key);
-      throw new AppError('ACCOUNT_TEMPORARILY_LOCKED', 'Too many failed sign-in attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS, {
-        retryAfterSeconds: Math.max(ttl, 1),
-      });
+      throw new AppError(
+        'ACCOUNT_TEMPORARILY_LOCKED',
+        'Too many failed sign-in attempts. Try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+        {
+          retryAfterSeconds: Math.max(ttl, 1),
+        },
+      );
     }
   }
 

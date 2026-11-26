@@ -26,13 +26,23 @@ export interface ParsedImport {
 
 const OPTION_KEYS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
-function enumValue<T extends string>(values: readonly T[], raw: string | undefined, fallback?: T): T | undefined {
+function enumValue<T extends string>(
+  values: readonly T[],
+  raw: string | undefined,
+  fallback?: T,
+): T | undefined {
   if (!raw) return fallback;
-  const up = raw.trim().toUpperCase().replace(/[\s-]+/g, '_') as T;
+  const up = raw
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_') as T;
   return values.includes(up) ? up : undefined;
 }
 
-export function parseImportRecord(rec: Record<string, unknown>, line: number): { line: number; row?: ImportRow; errors: string[] } {
+export function parseImportRecord(
+  rec: Record<string, unknown>,
+  line: number,
+): { line: number; row?: ImportRow; errors: string[] } {
   const get = (k: string) => {
     const v = rec[k];
     return v === undefined || v === null ? undefined : String(v).trim() || undefined;
@@ -45,7 +55,12 @@ export function parseImportRecord(rec: Record<string, unknown>, line: number): {
   const subjectSlug = get('subject');
   if (!subjectSlug) errors.push('subject is required');
 
-  const correct = new Set((get('correct') ?? '').split(/[|,;\s]+/).filter(Boolean).map((c) => c.toUpperCase()));
+  const correct = new Set(
+    (get('correct') ?? '')
+      .split(/[|,;\s]+/)
+      .filter(Boolean)
+      .map((c) => c.toUpperCase()),
+  );
   const options = OPTION_KEYS.filter((k) => get(`option_${k}`)).map((k) => ({
     key: k.toUpperCase(),
     text: get(`option_${k}`)!,
@@ -60,7 +75,10 @@ export function parseImportRecord(rec: Record<string, unknown>, line: number): {
     stemBn: get('stem_bn'),
     defaultMarks: marks,
     options,
-    acceptedAnswers: get('accepted_answers')?.split('|').map((s) => s.trim()).filter(Boolean),
+    acceptedAnswers: get('accepted_answers')
+      ?.split('|')
+      .map((s) => s.trim())
+      .filter(Boolean),
     rubric: get('rubric'),
     explanation: get('explanation') ? { content: get('explanation')! } : undefined,
   };
@@ -71,9 +89,15 @@ export function parseImportRecord(rec: Record<string, unknown>, line: number): {
   if (get('source_type') && !sourceType) errors.push(`invalid source_type "${get('source_type')}"`);
   if (sourceType) {
     const year = get('source_year') ? Number(get('source_year')) : undefined;
-    source = { type: sourceType, title: get('source_title') ?? sourceType, year: Number.isInteger(year) ? year : undefined };
+    source = {
+      type: sourceType,
+      title: get('source_title') ?? sourceType,
+      year: Number.isInteger(year) ? year : undefined,
+    };
   }
-  const isDemo = ['1', 'true', 'yes'].includes((get('is_demo') ?? '').toLowerCase()) || sourceType === QuestionSourceType.DEMONSTRATION;
+  const isDemo =
+    ['1', 'true', 'yes'].includes((get('is_demo') ?? '').toLowerCase()) ||
+    sourceType === QuestionSourceType.DEMONSTRATION;
 
   if (errors.length || !type || !difficulty || !subjectSlug) return { line, errors };
   return {
@@ -84,8 +108,14 @@ export function parseImportRecord(rec: Record<string, unknown>, line: number): {
       difficulty,
       subjectSlug,
       topicPath: get('topic'),
-      examSlugs: (get('exams') ?? '').split(/[;|]/).map((s) => s.trim()).filter(Boolean),
-      tags: (get('tags') ?? '').split(/[;|]/).map((s) => s.trim()).filter(Boolean),
+      examSlugs: (get('exams') ?? '')
+        .split(/[;|]/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+      tags: (get('tags') ?? '')
+        .split(/[;|]/)
+        .map((s) => s.trim())
+        .filter(Boolean),
       isDemo,
       source,
       content,
@@ -100,7 +130,9 @@ export function parseImportFile(body: string, format: 'csv' | 'json'): ParsedImp
     if (!Array.isArray(parsed)) throw new Error('JSON import must be an array of question objects');
     records = parsed as Record<string, unknown>[];
   } else {
-    records = csvToObjects(body).map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.toLowerCase(), v])));
+    records = csvToObjects(body).map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k.toLowerCase(), v])),
+    );
   }
   // Line numbers are 1-based data rows (+1 for CSV header).
   return { rows: records.map((r, i) => parseImportRecord(r, format === 'csv' ? i + 2 : i + 1)) };

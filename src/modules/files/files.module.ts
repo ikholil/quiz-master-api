@@ -80,14 +80,30 @@ export class FilesController {
     schema: {
       type: 'object',
       required: ['file', 'purpose'],
-      properties: { file: { type: 'string', format: 'binary' }, purpose: { type: 'string', enum: Object.keys(FILE_PURPOSES) }, visibility: { type: 'string', enum: Object.values(FileVisibility) } },
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        purpose: { type: 'string', enum: Object.keys(FILE_PURPOSES) },
+        visibility: { type: 'string', enum: Object.values(FileVisibility) },
+      },
     },
   })
   @ApiEnvelope(StoredFileResponse, { status: 201 })
-  async upload(@UploadedFile() file: UploadedBinary | undefined, @Body() dto: UploadFileDto, @CurrentUser() user: AuthUser) {
+  async upload(
+    @UploadedFile() file: UploadedBinary | undefined,
+    @Body() dto: UploadFileDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     if (!file) throw AppError.badRequest('FILE_REQUIRED', 'A file field is required');
     const stored = await this.files.upload(user, file, dto.purpose, dto.visibility);
-    return { id: stored.id, originalName: stored.originalName, mimeType: stored.mimeType, sizeBytes: stored.sizeBytes, visibility: stored.visibility, purpose: stored.purpose, createdAt: stored.createdAt };
+    return {
+      id: stored.id,
+      originalName: stored.originalName,
+      mimeType: stored.mimeType,
+      sizeBytes: stored.sizeBytes,
+      visibility: stored.visibility,
+      purpose: stored.purpose,
+      createdAt: stored.createdAt,
+    };
   }
 
   @Public()
@@ -111,12 +127,14 @@ export class FilesController {
   async download(@Param('token') token: string, @Res() res: Response) {
     if (!(this.storage instanceof LocalStorageDriver)) throw AppError.notFound('File');
     const parsed = this.storage.verifyToken(token);
-    if (!parsed) throw AppError.forbidden('Download link is invalid or has expired', 'INVALID_DOWNLOAD_TOKEN');
+    if (!parsed)
+      throw AppError.forbidden('Download link is invalid or has expired', 'INVALID_DOWNLOAD_TOKEN');
     const { body, mime } = await this.files.readByKey(parsed.key);
     res.setHeader('Content-Type', mime);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'none'");
-    if (parsed.name) res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(parsed.name)}"`);
+    if (parsed.name)
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(parsed.name)}"`);
     res.send(body);
   }
 }

@@ -1,5 +1,11 @@
 import type { AppConfig } from '../../../config/configuration';
-import { AiProvider, ChatRequest, ChatResult, EMBEDDING_DIMENSIONS, ProviderUnavailableError } from './ai-provider';
+import {
+  AiProvider,
+  ChatRequest,
+  ChatResult,
+  EMBEDDING_DIMENSIONS,
+  ProviderUnavailableError,
+} from './ai-provider';
 
 /**
  * Any OpenAI-compatible endpoint (OpenAI, Azure-compatible gateways, self-hosted vLLM/Ollama gateways)
@@ -15,7 +21,8 @@ export class OpenAiCompatibleProvider implements AiProvider {
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
-    if (!this.cfg.openaiApiKey) throw new ProviderUnavailableError('OpenAI-compatible API key not configured');
+    if (!this.cfg.openaiApiKey)
+      throw new ProviderUnavailableError('OpenAI-compatible API key not configured');
     let res: Response;
     try {
       res = await fetch(`${this.cfg.openaiBaseUrl}${path}`, {
@@ -27,8 +34,10 @@ export class OpenAiCompatibleProvider implements AiProvider {
     } catch (err) {
       throw new ProviderUnavailableError(`OpenAI-compatible request failed: ${(err as Error).message}`);
     }
-    if (res.status === 429 || res.status >= 500) throw new ProviderUnavailableError(`OpenAI-compatible error ${res.status}`);
-    if (!res.ok) throw new Error(`OpenAI-compatible error ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (res.status === 429 || res.status >= 500)
+      throw new ProviderUnavailableError(`OpenAI-compatible error ${res.status}`);
+    if (!res.ok)
+      throw new Error(`OpenAI-compatible error ${res.status}: ${(await res.text()).slice(0, 300)}`);
     return (await res.json()) as T;
   }
 
@@ -55,13 +64,17 @@ export class OpenAiCompatibleProvider implements AiProvider {
 
   async embed(texts: string[]) {
     const model = this.cfg.embeddingModel;
-    const json = await this.post<{ data: Array<{ embedding: number[]; index: number }>; usage?: { prompt_tokens: number } }>('/embeddings', {
+    const json = await this.post<{
+      data: Array<{ embedding: number[]; index: number }>;
+      usage?: { prompt_tokens: number };
+    }>('/embeddings', {
       model,
       input: texts,
       dimensions: EMBEDDING_DIMENSIONS,
     });
     const vectors = json.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
-    if (vectors.some((v) => v.length !== EMBEDDING_DIMENSIONS)) throw new Error(`Embedding model must return ${EMBEDDING_DIMENSIONS} dimensions`);
+    if (vectors.some((v) => v.length !== EMBEDDING_DIMENSIONS))
+      throw new Error(`Embedding model must return ${EMBEDDING_DIMENSIONS} dimensions`);
     return { vectors, model, inputTokens: json.usage?.prompt_tokens ?? 0 };
   }
 }

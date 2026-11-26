@@ -104,23 +104,49 @@ export function scoreItem(item: ScoringItem, policy: MultiSelectPolicy): ItemSco
     case QuestionType.VIVA: {
       const answered = !!item.textAnswer?.trim() || item.type === QuestionType.VIVA;
       if (!answered) return { ...base, outcome: 'SKIPPED', awardedCenti: 0, isCorrect: null };
-      if (item.manualAwardCenti === null) return { ...base, outcome: 'PENDING_MANUAL', awardedCenti: null, isCorrect: null };
+      if (item.manualAwardCenti === null)
+        return { ...base, outcome: 'PENDING_MANUAL', awardedCenti: null, isCorrect: null };
       const award = Math.min(Math.max(item.manualAwardCenti, 0), item.maxMarksCenti);
       return { ...base, outcome: 'MANUAL', awardedCenti: award, isCorrect: null };
     }
   }
 }
 
-export function scoreAttempt(items: ScoringItem[], rules: ScoringRules, sectionOrder: string[]): AttemptScore {
+export function scoreAttempt(
+  items: ScoringItem[],
+  rules: ScoringRules,
+  sectionOrder: string[],
+): AttemptScore {
   const scored = items.map((i) => scoreItem(i, rules.multiSelectPolicy));
   const sections = new Map<string, SectionScore>(
-    sectionOrder.map((id) => [id, { sectionId: id, maxCenti: 0, obtainedCenti: 0, correct: 0, partial: 0, wrong: 0, skipped: 0, pending: 0 }]),
+    sectionOrder.map((id) => [
+      id,
+      {
+        sectionId: id,
+        maxCenti: 0,
+        obtainedCenti: 0,
+        correct: 0,
+        partial: 0,
+        wrong: 0,
+        skipped: 0,
+        pending: 0,
+      },
+    ]),
   );
   items.forEach((item, idx) => {
     const s = scored[idx];
     let sec = sections.get(item.sectionId);
     if (!sec) {
-      sec = { sectionId: item.sectionId, maxCenti: 0, obtainedCenti: 0, correct: 0, partial: 0, wrong: 0, skipped: 0, pending: 0 };
+      sec = {
+        sectionId: item.sectionId,
+        maxCenti: 0,
+        obtainedCenti: 0,
+        correct: 0,
+        partial: 0,
+        wrong: 0,
+        skipped: 0,
+        pending: 0,
+      };
       sections.set(item.sectionId, sec);
     }
     sec.maxCenti += item.maxMarksCenti;
@@ -139,7 +165,8 @@ export function scoreAttempt(items: ScoringItem[], rules: ScoringRules, sectionO
   if (!rules.allowNegativeTotal) obtainedCenti = Math.max(0, obtainedCenti);
   obtainedCenti = Math.min(obtainedCenti, totalCenti);
 
-  const sum = (k: keyof Omit<SectionScore, 'sectionId' | 'maxCenti' | 'obtainedCenti'>) => list.reduce((n, s) => n + s[k], 0);
+  const sum = (k: keyof Omit<SectionScore, 'sectionId' | 'maxCenti' | 'obtainedCenti'>) =>
+    list.reduce((n, s) => n + s[k], 0);
   const correct = sum('correct');
   const wrong = sum('wrong');
   const partial = sum('partial');

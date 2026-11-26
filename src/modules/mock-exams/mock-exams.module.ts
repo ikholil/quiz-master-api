@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Global, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Global,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { PublishStatus } from '@prisma/client';
 import { IsEnum } from 'class-validator';
@@ -6,7 +18,13 @@ import { AdminOnly, Authenticated, CurrentUser, ReqContext } from '../../common/
 import { ApiEnvelope, ApiPaginated } from '../../common/swagger/api-envelope';
 import type { AuthUser, RequestContext } from '../../common/types/auth-user';
 import { PERMISSIONS } from '../rbac/permissions';
-import { CreateMockTemplateDto, MockExamDetail, MockExamSummary, MockQueryDto, UpdateMockTemplateDto } from './mock-exams.dto';
+import {
+  CreateMockTemplateDto,
+  MockExamDetail,
+  MockExamSummary,
+  MockQueryDto,
+  UpdateMockTemplateDto,
+} from './mock-exams.dto';
 import { MockExamsService } from './mock-exams.service';
 import { QuestionSelector } from './question-selector';
 
@@ -65,7 +83,12 @@ export class AdminMockExamsController {
 
   @Patch(':id')
   @AdminOnly(PERMISSIONS.MOCK_EXAMS_MANAGE)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateMockTemplateDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMockTemplateDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.mocks.update(id, dto, u.id, ctx);
   }
 
@@ -73,13 +96,22 @@ export class AdminMockExamsController {
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.MOCK_EXAMS_MANAGE)
   @ApiOperation({ summary: 'Freeze the draft configuration into a new immutable version' })
-  publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  publish(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.mocks.publish(id, u.id, ctx);
   }
 
   @Patch(':id/status')
   @AdminOnly(PERMISSIONS.MOCK_EXAMS_MANAGE)
-  status(@Param('id', ParseUUIDPipe) id: string, @Body() dto: MockStatusDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  status(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MockStatusDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.mocks.setStatus(id, dto.status, u.id, ctx);
   }
 }

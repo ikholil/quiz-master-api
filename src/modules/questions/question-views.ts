@@ -22,7 +22,9 @@ function sourceLabel(v: VersionWithContent): string | null {
  */
 export function toStudentView(v: VersionWithContent, optionOrder?: string[]) {
   const byId = new Map(v.options.map((o) => [o.id, o]));
-  const ordered = optionOrder?.length ? optionOrder.map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o) : v.options;
+  const ordered = optionOrder?.length
+    ? optionOrder.map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o)
+    : v.options;
   const q = v.question;
   return {
     questionId: q.id,
@@ -33,7 +35,14 @@ export function toStudentView(v: VersionWithContent, optionOrder?: string[]) {
     stem: v.stem,
     stemBn: v.stemBn,
     imageFileId: v.imageFileId,
-    passage: q.passage ? { id: q.passage.id, title: q.passage.title, content: q.passage.content, imageFileId: q.passage.imageFileId } : null,
+    passage: q.passage
+      ? {
+          id: q.passage.id,
+          title: q.passage.title,
+          content: q.passage.content,
+          imageFileId: q.passage.imageFileId,
+        }
+      : null,
     options: ordered.map((o) => ({ id: o.id, text: o.text, textBn: o.textBn, imageFileId: o.imageFileId })),
     subjectId: q.subjectId,
     topicId: q.topicId,

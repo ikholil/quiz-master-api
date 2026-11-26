@@ -75,7 +75,11 @@ export class TopicMappingItemDto {
 }
 
 export class SetMappingsDto {
-  @IsArray() @ArrayMaxSize(2000) @ValidateNested({ each: true }) @Type(() => TopicMappingItemDto) items: TopicMappingItemDto[];
+  @IsArray()
+  @ArrayMaxSize(2000)
+  @ValidateNested({ each: true })
+  @Type(() => TopicMappingItemDto)
+  items: TopicMappingItemDto[];
   /** When true, mappings not listed are removed. */
   @IsOptional() replace?: boolean;
 }

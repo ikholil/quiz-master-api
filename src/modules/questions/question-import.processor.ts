@@ -30,7 +30,10 @@ export class QuestionImportProcessor extends WorkerHost {
     const { jobId, submitForReview } = job.data;
     const record = await this.prisma.questionImportJob.findUnique({ where: { id: jobId } });
     if (!record || record.status === ImportStatus.COMPLETED) return;
-    await this.prisma.questionImportJob.update({ where: { id: jobId }, data: { status: ImportStatus.PROCESSING, startedAt: new Date() } });
+    await this.prisma.questionImportJob.update({
+      where: { id: jobId },
+      data: { status: ImportStatus.PROCESSING, startedAt: new Date() },
+    });
 
     try {
       const { body } = await this.files.readBuffer(record.fileId);
@@ -38,11 +41,21 @@ export class QuestionImportProcessor extends WorkerHost {
       if (parsed.rows.length > MAX_ROWS) throw new Error(`Import is limited to ${MAX_ROWS} rows`);
 
       const access = await this.rbac.getAccess(record.createdById);
-      const actor = { id: record.createdById, sessionId: 'import', roles: access.roles, permissions: access.permissions };
+      const actor = {
+        id: record.createdById,
+        sessionId: 'import',
+        roles: access.roles,
+        permissions: access.permissions,
+      };
       const subjects = new Map((await this.prisma.subject.findMany()).map((s) => [s.slug, s.id]));
-      const exams = new Map((await this.prisma.exam.findMany({ select: { id: true, slug: true } })).map((e) => [e.slug, e.id]));
+      const exams = new Map(
+        (await this.prisma.exam.findMany({ select: { id: true, slug: true } })).map((e) => [e.slug, e.id]),
+      );
       const topics = new Map(
-        (await this.prisma.topic.findMany({ include: { chapter: true } })).map((t) => [`${t.chapter.slug}/${t.slug}`, { id: t.id, subjectId: t.chapter.subjectId }]),
+        (await this.prisma.topic.findMany({ include: { chapter: true } })).map((t) => [
+          `${t.chapter.slug}/${t.slug}`,
+          { id: t.id, subjectId: t.chapter.subjectId },
+        ]),
       );
 
       const errors: Array<{ line: number; errors: string[] }> = [];
@@ -58,7 +71,8 @@ export class QuestionImportProcessor extends WorkerHost {
         const rowErrors: string[] = [];
         if (!subjectId) rowErrors.push(`unknown subject "${r.subjectSlug}"`);
         if (r.topicPath && !topic) rowErrors.push(`unknown topic "${r.topicPath}"`);
-        if (topic && subjectId && topic.subjectId !== subjectId) rowErrors.push('topic does not belong to subject');
+        if (topic && subjectId && topic.subjectId !== subjectId)
+          rowErrors.push('topic does not belong to subject');
         const examIds = r.examSlugs.map((s) => exams.get(s));
         if (examIds.some((e) => !e)) rowErrors.push(`unknown exam in "${r.examSlugs.join(';')}"`);
         if (rowErrors.length) {
@@ -69,9 +83,13 @@ export class QuestionImportProcessor extends WorkerHost {
           await this.prisma.$transaction(async (tx) => {
             let sourceId: string | undefined;
             if (r.source) {
-              const existing = await tx.questionSource.findFirst({ where: { type: r.source.type, title: r.source.title, year: r.source.year ?? null } });
+              const existing = await tx.questionSource.findFirst({
+                where: { type: r.source.type, title: r.source.title, year: r.source.year ?? null },
+              });
               // Imported previous-year sources are never auto-marked official; an editor must verify them.
-              sourceId = existing?.id ?? (await tx.questionSource.create({ data: { ...r.source, isOfficial: false } })).id;
+              sourceId =
+                existing?.id ??
+                (await tx.questionSource.create({ data: { ...r.source, isOfficial: false } })).id;
             }
             const created = await this.questions.create(
               {
@@ -92,7 +110,10 @@ export class QuestionImportProcessor extends WorkerHost {
             );
             if (submitForReview) {
               const q = await tx.question.findUnique({ where: { id: (created as { id: string }).id } });
-              await tx.questionVersion.update({ where: { id: q!.latestVersionId! }, data: { status: ContentStatus.IN_REVIEW } });
+              await tx.questionVersion.update({
+                where: { id: q!.latestVersionId! },
+                data: { status: ContentStatus.IN_REVIEW },
+              });
               await tx.question.update({ where: { id: q!.id }, data: { status: ContentStatus.IN_REVIEW } });
             }
           });
@@ -101,7 +122,10 @@ export class QuestionImportProcessor extends WorkerHost {
           errors.push({ line: item.line, errors: [(err as Error).message.slice(0, 300)] });
         }
         if ((imported + errors.length) % 100 === 0) {
-          await this.prisma.questionImportJob.update({ where: { id: jobId }, data: { importedRows: imported, failedRows: errors.length } });
+          await this.prisma.questionImportJob.update({
+            where: { id: jobId },
+            data: { importedRows: imported, failedRows: errors.length },
+          });
           await job.updateProgress(Math.round(((imported + errors.length) / parsed.rows.length) * 100));
         }
       }
@@ -122,7 +146,11 @@ export class QuestionImportProcessor extends WorkerHost {
     } catch (err) {
       await this.prisma.questionImportJob.update({
         where: { id: jobId },
-        data: { status: ImportStatus.FAILED, errors: [{ line: 0, errors: [(err as Error).message] }] as unknown as Prisma.InputJsonValue, completedAt: new Date() },
+        data: {
+          status: ImportStatus.FAILED,
+          errors: [{ line: 0, errors: [(err as Error).message] }] as unknown as Prisma.InputJsonValue,
+          completedAt: new Date(),
+        },
       });
       throw err;
     }

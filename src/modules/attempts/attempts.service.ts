@@ -29,7 +29,14 @@ import { QuestionsService } from '../questions/questions.service';
 import { EntitlementsService } from '../subscriptions/entitlements.service';
 import { FEATURES } from '../subscriptions/features';
 import { SETTINGS, SystemConfigService } from '../system-config/system-config.module';
-import { AdminAttemptQueryDto, AttemptQueryDto, BatchAnswerItemDto, EvaluateAnswerDto, EvaluationQueueQueryDto, SaveAnswerDto } from './attempts.dto';
+import {
+  AdminAttemptQueryDto,
+  AttemptQueryDto,
+  BatchAnswerItemDto,
+  EvaluateAnswerDto,
+  EvaluationQueueQueryDto,
+  SaveAnswerDto,
+} from './attempts.dto';
 import { SCORING_VERSION, ScoringItem, scoreAttempt } from './scoring';
 
 export interface RulesSnapshot {
@@ -45,7 +52,14 @@ export interface RulesSnapshot {
   allowNegativeTotal: boolean;
   resultVisibility: ResultVisibility;
   availableUntil: string | null;
-  sections: Array<{ id: string; title: string; sequence: number; questionCount: number; marksPerQuestion: number; negativeMarks: number }>;
+  sections: Array<{
+    id: string;
+    title: string;
+    sequence: number;
+    questionCount: number;
+    marksPerQuestion: number;
+    negativeMarks: number;
+  }>;
 }
 
 const MAX_TIME_PER_SAVE_MS = 30 * 60 * 1000;
@@ -73,7 +87,12 @@ export class AttemptsService {
       where: { id: templateId, status: PublishStatus.PUBLISHED, currentVersionId: { not: null } },
       include: {
         currentVersion: {
-          include: { sections: { orderBy: { sequence: 'asc' }, include: { questions: { include: { questionVersion: { select: { questionId: true } } } } } } },
+          include: {
+            sections: {
+              orderBy: { sequence: 'asc' },
+              include: { questions: { include: { questionVersion: { select: { questionId: true } } } } },
+            },
+          },
         },
       },
     });
@@ -81,7 +100,9 @@ export class AttemptsService {
     const version = template.currentVersion!;
 
     // Resume: one in-progress attempt per template version (also enforced by a partial unique index).
-    const active = await this.prisma.examAttempt.findFirst({ where: { userId: user.id, templateVersionId: version.id, status: AttemptStatus.IN_PROGRESS } });
+    const active = await this.prisma.examAttempt.findFirst({
+      where: { userId: user.id, templateVersionId: version.id, status: AttemptStatus.IN_PROGRESS },
+    });
     if (active) {
       if (active.expiresAt.getTime() + (await this.graceMs()) < Date.now()) {
         await this.finalize(active.id, true);
@@ -90,16 +111,26 @@ export class AttemptsService {
       }
     }
 
-    if (template.accessLevel === AccessLevel.PREMIUM) await this.entitlements.assert(user.id, FEATURES.MOCK_PREMIUM);
+    if (template.accessLevel === AccessLevel.PREMIUM)
+      await this.entitlements.assert(user.id, FEATURES.MOCK_PREMIUM);
     const now = new Date();
-    if (version.availableFrom && now < version.availableFrom) throw AppError.badRequest('EXAM_NOT_STARTED', 'This exam has not opened yet', { availableFrom: version.availableFrom });
-    if (version.availableUntil && now >= version.availableUntil) throw AppError.badRequest('EXAM_CLOSED', 'This exam window has closed');
+    if (version.availableFrom && now < version.availableFrom)
+      throw AppError.badRequest('EXAM_NOT_STARTED', 'This exam has not opened yet', {
+        availableFrom: version.availableFrom,
+      });
+    if (version.availableUntil && now >= version.availableUntil)
+      throw AppError.badRequest('EXAM_CLOSED', 'This exam window has closed');
 
-    const used = await this.prisma.examAttempt.count({ where: { userId: user.id, templateVersionId: version.id } });
-    if (version.maxAttempts && used >= version.maxAttempts) throw AppError.conflict('MAX_ATTEMPTS_REACHED', 'You have used all attempts for this exam');
+    const used = await this.prisma.examAttempt.count({
+      where: { userId: user.id, templateVersionId: version.id },
+    });
+    if (version.maxAttempts && used >= version.maxAttempts)
+      throw AppError.conflict('MAX_ATTEMPTS_REACHED', 'You have used all attempts for this exam');
 
     const durationMs = version.durationMinutes * 60_000;
-    const expiresAt = new Date(Math.min(now.getTime() + durationMs, version.availableUntil?.getTime() ?? Infinity));
+    const expiresAt = new Date(
+      Math.min(now.getTime() + durationMs, version.availableUntil?.getTime() ?? Infinity),
+    );
     const seed = randomBytes(16).toString('hex');
     const rand = seededRandom(seed);
 
@@ -131,18 +162,35 @@ export class AttemptsService {
       attemptId = await this.prisma.$transaction(
         async (tx) => {
           const picked = new Set<string>();
-          const items: Array<{ sectionId: string; questionId: string; versionId: string; maxMarks: Prisma.Decimal; negativeMarks: Prisma.Decimal }> = [];
+          const items: Array<{
+            sectionId: string;
+            questionId: string;
+            versionId: string;
+            maxMarks: Prisma.Decimal;
+            negativeMarks: Prisma.Decimal;
+          }> = [];
           for (const section of version.sections) {
             const chosen = await this.selector.selectForSection(section, picked, rand, tx);
             const ordered = version.shuffleQuestions ? shuffle(chosen, rand) : chosen;
             for (const c of ordered) {
               picked.add(c.questionId);
-              items.push({ sectionId: section.id, questionId: c.questionId, versionId: c.versionId, maxMarks: section.marksPerQuestion, negativeMarks: section.negativeMarks });
+              items.push({
+                sectionId: section.id,
+                questionId: c.questionId,
+                versionId: c.versionId,
+                maxMarks: section.marksPerQuestion,
+                negativeMarks: section.negativeMarks,
+              });
             }
           }
-          const optionSets = await tx.questionOption.findMany({ where: { versionId: { in: items.map((i) => i.versionId) } }, orderBy: { sortOrder: 'asc' }, select: { id: true, versionId: true } });
+          const optionSets = await tx.questionOption.findMany({
+            where: { versionId: { in: items.map((i) => i.versionId) } },
+            orderBy: { sortOrder: 'asc' },
+            select: { id: true, versionId: true },
+          });
           const optionsByVersion = new Map<string, string[]>();
-          for (const o of optionSets) optionsByVersion.set(o.versionId, [...(optionsByVersion.get(o.versionId) ?? []), o.id]);
+          for (const o of optionSets)
+            optionsByVersion.set(o.versionId, [...(optionsByVersion.get(o.versionId) ?? []), o.id]);
 
           const attempt = await tx.examAttempt.create({
             data: {
@@ -178,14 +226,20 @@ export class AttemptsService {
     } catch (err) {
       // Concurrent double-tap on "start": the partial unique index rejects the second insert.
       if ((err as { code?: string }).code === 'P2002') {
-        const existing = await this.prisma.examAttempt.findFirst({ where: { userId: user.id, templateVersionId: version.id, status: AttemptStatus.IN_PROGRESS } });
+        const existing = await this.prisma.examAttempt.findFirst({
+          where: { userId: user.id, templateVersionId: version.id, status: AttemptStatus.IN_PROGRESS },
+        });
         if (existing) return this.getState(user.id, existing.id);
       }
       throw err;
     }
 
     const grace = await this.graceMs();
-    await this.attemptsQueue.add(JOBS.AUTO_SUBMIT_ATTEMPT, { attemptId }, { jobId: `auto-submit-${attemptId}`, delay: Math.max(0, expiresAt.getTime() - Date.now() + grace) });
+    await this.attemptsQueue.add(
+      JOBS.AUTO_SUBMIT_ATTEMPT,
+      { attemptId },
+      { jobId: `auto-submit-${attemptId}`, delay: Math.max(0, expiresAt.getTime() - Date.now() + grace) },
+    );
     return this.getState(user.id, attemptId);
   }
 
@@ -193,12 +247,18 @@ export class AttemptsService {
 
   async getState(userId: string, attemptId: string) {
     let attempt = await this.ownedAttempt(userId, attemptId);
-    if (attempt.status === AttemptStatus.IN_PROGRESS && attempt.expiresAt.getTime() + (await this.graceMs()) < Date.now()) {
+    if (
+      attempt.status === AttemptStatus.IN_PROGRESS &&
+      attempt.expiresAt.getTime() + (await this.graceMs()) < Date.now()
+    ) {
       await this.finalize(attempt.id, true);
       attempt = await this.ownedAttempt(userId, attemptId);
     }
     const rules = attempt.rulesSnapshot as unknown as RulesSnapshot;
-    const answers = await this.prisma.attemptAnswer.findMany({ where: { attemptId }, orderBy: { position: 'asc' } });
+    const answers = await this.prisma.attemptAnswer.findMany({
+      where: { attemptId },
+      orderBy: { position: 'asc' },
+    });
     const versions = await this.questions.loadVersions(answers.map((a) => a.questionVersionId));
     const now = new Date();
     return {
@@ -210,10 +270,18 @@ export class AttemptsService {
       startedAt: attempt.startedAt,
       expiresAt: attempt.expiresAt,
       serverTime: now,
-      remainingSeconds: attempt.status === AttemptStatus.IN_PROGRESS ? Math.max(0, Math.floor((attempt.expiresAt.getTime() - now.getTime()) / 1000)) : 0,
+      remainingSeconds:
+        attempt.status === AttemptStatus.IN_PROGRESS
+          ? Math.max(0, Math.floor((attempt.expiresAt.getTime() - now.getTime()) / 1000))
+          : 0,
       durationMinutes: rules.durationMinutes,
       totalMarks: rules.totalMarks,
-      sections: rules.sections.map((s) => ({ id: s.id, title: s.title, sequence: s.sequence, questionCount: s.questionCount })),
+      sections: rules.sections.map((s) => ({
+        id: s.id,
+        title: s.title,
+        sequence: s.sequence,
+        questionCount: s.questionCount,
+      })),
       questions: answers.map((a) => ({
         ...toStudentView(versions.get(a.questionVersionId)!, a.optionOrder),
         answerId: a.id,
@@ -239,18 +307,21 @@ export class AttemptsService {
   /** Saves one or many answers (offline sync). Only the owner may write, only while the attempt is open. */
   async saveAnswers(userId: string, attemptId: string, items: BatchAnswerItemDto[]) {
     const attempt = await this.ownedAttempt(userId, attemptId);
-    if (attempt.status !== AttemptStatus.IN_PROGRESS) throw AppError.conflict('ATTEMPT_NOT_IN_PROGRESS', 'This attempt has already been submitted');
+    if (attempt.status !== AttemptStatus.IN_PROGRESS)
+      throw AppError.conflict('ATTEMPT_NOT_IN_PROGRESS', 'This attempt has already been submitted');
     if (Date.now() > attempt.expiresAt.getTime() + (await this.graceMs())) {
       await this.finalize(attemptId, true);
       throw AppError.conflict('ATTEMPT_EXPIRED', 'Time is over; the attempt was submitted automatically');
     }
-    if (new Set(items.map((i) => i.answerId)).size !== items.length) throw AppError.badRequest('DUPLICATE_ANSWER', 'Each answer may appear once per request');
+    if (new Set(items.map((i) => i.answerId)).size !== items.length)
+      throw AppError.badRequest('DUPLICATE_ANSWER', 'Each answer may appear once per request');
 
     const rows = await this.prisma.attemptAnswer.findMany({
       where: { attemptId, id: { in: items.map((i) => i.answerId) } },
       include: { questionVersion: { select: { question: { select: { type: true } } } } },
     });
-    if (rows.length !== items.length) throw AppError.badRequest('INVALID_ANSWER_ID', 'One or more answers do not belong to this attempt');
+    if (rows.length !== items.length)
+      throw AppError.badRequest('INVALID_ANSWER_ID', 'One or more answers do not belong to this attempt');
     const byId = new Map(rows.map((r) => [r.id, r]));
 
     const updates = items.map((item) => {
@@ -258,18 +329,23 @@ export class AttemptsService {
       const type = row.questionVersion.question.type;
       const data: Prisma.AttemptAnswerUpdateInput = {};
       if (item.selectedOptionIds !== undefined) {
-        if (type === QuestionType.SHORT_ANSWER || MANUAL_TYPES.includes(type)) throw AppError.badRequest('INVALID_ANSWER', 'This question takes a text answer');
+        if (type === QuestionType.SHORT_ANSWER || MANUAL_TYPES.includes(type))
+          throw AppError.badRequest('INVALID_ANSWER', 'This question takes a text answer');
         const unique = [...new Set(item.selectedOptionIds)];
-        if (unique.some((id) => !row.optionOrder.includes(id))) throw AppError.badRequest('INVALID_OPTION', 'Selected option does not belong to the question');
-        if (type !== QuestionType.MULTIPLE_CHOICE && unique.length > 1) throw AppError.badRequest('INVALID_ANSWER', 'Only one option may be selected');
+        if (unique.some((id) => !row.optionOrder.includes(id)))
+          throw AppError.badRequest('INVALID_OPTION', 'Selected option does not belong to the question');
+        if (type !== QuestionType.MULTIPLE_CHOICE && unique.length > 1)
+          throw AppError.badRequest('INVALID_ANSWER', 'Only one option may be selected');
         data.selectedOptionIds = unique;
       }
       if (item.textAnswer !== undefined) {
-        if (type !== QuestionType.SHORT_ANSWER && !MANUAL_TYPES.includes(type)) throw AppError.badRequest('INVALID_ANSWER', 'This question takes option answers');
+        if (type !== QuestionType.SHORT_ANSWER && !MANUAL_TYPES.includes(type))
+          throw AppError.badRequest('INVALID_ANSWER', 'This question takes option answers');
         data.textAnswer = item.textAnswer?.trim() ? item.textAnswer : null;
       }
       if (item.flagged !== undefined) data.flagged = item.flagged;
-      if (item.timeSpentMs) data.timeSpentMs = { increment: Math.min(item.timeSpentMs, MAX_TIME_PER_SAVE_MS) };
+      if (item.timeSpentMs)
+        data.timeSpentMs = { increment: Math.min(item.timeSpentMs, MAX_TIME_PER_SAVE_MS) };
       if (item.selectedOptionIds !== undefined || item.textAnswer !== undefined) {
         const answered = (data.selectedOptionIds as string[] | undefined)?.length || data.textAnswer;
         data.answeredAt = answered ? new Date() : null;
@@ -279,12 +355,25 @@ export class AttemptsService {
 
     // Conditional on the attempt still being open: a concurrent submit wins and these writes are rejected.
     await this.prisma.$transaction(async (tx) => {
-      const open = await tx.examAttempt.updateMany({ where: { id: attemptId, status: AttemptStatus.IN_PROGRESS }, data: { updatedAt: new Date() } });
-      if (!open.count) throw AppError.conflict('ATTEMPT_NOT_IN_PROGRESS', 'This attempt has already been submitted');
+      const open = await tx.examAttempt.updateMany({
+        where: { id: attemptId, status: AttemptStatus.IN_PROGRESS },
+        data: { updatedAt: new Date() },
+      });
+      if (!open.count)
+        throw AppError.conflict('ATTEMPT_NOT_IN_PROGRESS', 'This attempt has already been submitted');
       for (const u of updates) await tx.attemptAnswer.update({ where: { id: u.id }, data: u.data });
     });
-    const saved = await this.prisma.attemptAnswer.findMany({ where: { id: { in: updates.map((u) => u.id) } }, select: { id: true, selectedOptionIds: true, textAnswer: true, flagged: true, answeredAt: true } });
-    return saved.map((s) => ({ answerId: s.id, selectedOptionIds: s.selectedOptionIds, textAnswer: s.textAnswer, flagged: s.flagged, answeredAt: s.answeredAt }));
+    const saved = await this.prisma.attemptAnswer.findMany({
+      where: { id: { in: updates.map((u) => u.id) } },
+      select: { id: true, selectedOptionIds: true, textAnswer: true, flagged: true, answeredAt: true },
+    });
+    return saved.map((s) => ({
+      answerId: s.id,
+      selectedOptionIds: s.selectedOptionIds,
+      textAnswer: s.textAnswer,
+      flagged: s.flagged,
+      answeredAt: s.answeredAt,
+    }));
   }
 
   // ───────── Submit & evaluate ─────────
@@ -293,8 +382,14 @@ export class AttemptsService {
     const attempt = await this.ownedAttempt(userId, attemptId);
     if (attempt.status === AttemptStatus.IN_PROGRESS) {
       if (idempotencyKey) {
-        const reused = await this.prisma.examAttempt.findFirst({ where: { userId, submissionKey: idempotencyKey, id: { not: attemptId } } });
-        if (reused) throw AppError.conflict('IDEMPOTENCY_KEY_REUSED', 'This Idempotency-Key was already used for another attempt');
+        const reused = await this.prisma.examAttempt.findFirst({
+          where: { userId, submissionKey: idempotencyKey, id: { not: attemptId } },
+        });
+        if (reused)
+          throw AppError.conflict(
+            'IDEMPOTENCY_KEY_REUSED',
+            'This Idempotency-Key was already used for another attempt',
+          );
       }
       await this.finalize(attemptId, false, idempotencyKey);
     }
@@ -314,7 +409,11 @@ export class AttemptsService {
         const submittedAt = new Date(Math.min(Date.now(), attempt.expiresAt.getTime()));
         const closed = await tx.examAttempt.updateMany({
           where: { id: attemptId, status: AttemptStatus.IN_PROGRESS },
-          data: { status: auto ? AttemptStatus.AUTO_SUBMITTED : AttemptStatus.SUBMITTED, submittedAt, submissionKey: submissionKey ?? null },
+          data: {
+            status: auto ? AttemptStatus.AUTO_SUBMITTED : AttemptStatus.SUBMITTED,
+            submittedAt,
+            submissionKey: submissionKey ?? null,
+          },
         });
         if (closed.count !== 1) return false;
         await this.evaluate(tx, attemptId);
@@ -324,9 +423,16 @@ export class AttemptsService {
     );
     if (done) {
       await this.attemptsQueue.remove(`auto-submit-${attemptId}`).catch(() => undefined);
-      const attempt = await this.prisma.examAttempt.findUnique({ where: { id: attemptId }, include: { result: true } });
+      const attempt = await this.prisma.examAttempt.findUnique({
+        where: { id: attemptId },
+        include: { result: true },
+      });
       if (attempt) {
-        await this.learningQueue.add(JOBS.UPDATE_MASTERY, { source: 'attempt', id: attemptId, userId: attempt.userId }, { jobId: `mastery-attempt-${attemptId}` });
+        await this.learningQueue.add(
+          JOBS.UPDATE_MASTERY,
+          { source: 'attempt', id: attemptId, userId: attempt.userId },
+          { jobId: `mastery-attempt-${attemptId}` },
+        );
         const rules = attempt.rulesSnapshot as unknown as RulesSnapshot;
         await this.notifications.notify(attempt.userId, {
           type: 'attempt.submitted',
@@ -346,7 +452,11 @@ export class AttemptsService {
     const answers = await tx.attemptAnswer.findMany({ where: { attemptId }, orderBy: { position: 'asc' } });
     const versions = await tx.questionVersion.findMany({
       where: { id: { in: answers.map((a) => a.questionVersionId) } },
-      include: { options: { orderBy: { sortOrder: 'asc' } }, explanation: true, question: { include: { passage: true, source: true } } },
+      include: {
+        options: { orderBy: { sortOrder: 'asc' } },
+        explanation: true,
+        question: { include: { passage: true, source: true } },
+      },
     });
     const vById = new Map(versions.map((v) => [v.id, v]));
 
@@ -360,21 +470,34 @@ export class AttemptsService {
         negativeCenti: toCenti(a.negativeMarks),
         selectedOptionIds: a.selectedOptionIds,
         textAnswer: a.textAnswer,
-        manualAwardCenti: a.evaluationStatus === EvaluationStatus.MANUAL_EVALUATED ? toCenti(a.awardedMarks) : null,
+        manualAwardCenti:
+          a.evaluationStatus === EvaluationStatus.MANUAL_EVALUATED ? toCenti(a.awardedMarks) : null,
       };
     });
     const score = scoreAttempt(
       items,
-      { multiSelectPolicy: rules.multiSelectPolicy, allowNegativeTotal: rules.allowNegativeTotal, passMarksCenti: rules.passMarks === null ? null : toCenti(rules.passMarks) },
+      {
+        multiSelectPolicy: rules.multiSelectPolicy,
+        allowNegativeTotal: rules.allowNegativeTotal,
+        passMarksCenti: rules.passMarks === null ? null : toCenti(rules.passMarks),
+      },
       rules.sections.map((s) => s.id),
     );
 
     for (const s of score.items) {
       const status =
-        s.outcome === 'PENDING_MANUAL' ? EvaluationStatus.MANUAL_PENDING : s.outcome === 'MANUAL' ? EvaluationStatus.MANUAL_EVALUATED : EvaluationStatus.AUTO_EVALUATED;
+        s.outcome === 'PENDING_MANUAL'
+          ? EvaluationStatus.MANUAL_PENDING
+          : s.outcome === 'MANUAL'
+            ? EvaluationStatus.MANUAL_EVALUATED
+            : EvaluationStatus.AUTO_EVALUATED;
       await tx.attemptAnswer.update({
         where: { id: s.id },
-        data: { isCorrect: s.isCorrect, awardedMarks: s.awardedCenti === null ? null : centiToDecimal(s.awardedCenti), evaluationStatus: status },
+        data: {
+          isCorrect: s.isCorrect,
+          awardedMarks: s.awardedCenti === null ? null : centiToDecimal(s.awardedCenti),
+          evaluationStatus: status,
+        },
       });
     }
 
@@ -403,7 +526,12 @@ export class AttemptsService {
       passed: score.passed,
       sectionBreakdown: sectionBreakdown as unknown as Prisma.InputJsonValue,
       scoringVersion: rules.scoringVersion ?? SCORING_VERSION,
-      timeTakenSeconds: Math.max(0, Math.round((Math.min(end.getTime(), attempt.expiresAt.getTime()) - attempt.startedAt.getTime()) / 1000)),
+      timeTakenSeconds: Math.max(
+        0,
+        Math.round(
+          (Math.min(end.getTime(), attempt.expiresAt.getTime()) - attempt.startedAt.getTime()) / 1000,
+        ),
+      ),
       evaluatedAt: new Date(),
       finalizedAt: score.pending ? null : new Date(),
     };
@@ -422,16 +550,31 @@ export class AttemptsService {
 
   async getResult(userId: string, attemptId: string) {
     const attempt = await this.ownedAttempt(userId, attemptId);
-    if (attempt.status === AttemptStatus.IN_PROGRESS) throw AppError.conflict('ATTEMPT_NOT_SUBMITTED', 'Submit the attempt to see the result');
+    if (attempt.status === AttemptStatus.IN_PROGRESS)
+      throw AppError.conflict('ATTEMPT_NOT_SUBMITTED', 'Submit the attempt to see the result');
     const rules = attempt.rulesSnapshot as unknown as RulesSnapshot;
     this.assertResultVisible(rules);
     const result = await this.prisma.attemptResult.findUnique({ where: { attemptId } });
     if (!result) throw AppError.notFound('Result');
 
     const [higher, participants, lower] = await this.prisma.$transaction([
-      this.prisma.attemptResult.count({ where: { templateVersionId: result.templateVersionId, status: ResultStatus.FINAL, obtainedMarks: { gt: result.obtainedMarks } } }),
-      this.prisma.attemptResult.count({ where: { templateVersionId: result.templateVersionId, status: ResultStatus.FINAL } }),
-      this.prisma.attemptResult.count({ where: { templateVersionId: result.templateVersionId, status: ResultStatus.FINAL, obtainedMarks: { lt: result.obtainedMarks } } }),
+      this.prisma.attemptResult.count({
+        where: {
+          templateVersionId: result.templateVersionId,
+          status: ResultStatus.FINAL,
+          obtainedMarks: { gt: result.obtainedMarks },
+        },
+      }),
+      this.prisma.attemptResult.count({
+        where: { templateVersionId: result.templateVersionId, status: ResultStatus.FINAL },
+      }),
+      this.prisma.attemptResult.count({
+        where: {
+          templateVersionId: result.templateVersionId,
+          status: ResultStatus.FINAL,
+          obtainedMarks: { lt: result.obtainedMarks },
+        },
+      }),
     ]);
     const final = result.status === ResultStatus.FINAL;
     return {
@@ -459,9 +602,13 @@ export class AttemptsService {
   /** Detailed answer review with explanations — never available while the attempt is in progress. */
   async review(userId: string, attemptId: string) {
     const attempt = await this.ownedAttempt(userId, attemptId);
-    if (attempt.status === AttemptStatus.IN_PROGRESS) throw AppError.forbidden('Answers are hidden until the attempt is submitted', 'ATTEMPT_NOT_SUBMITTED');
+    if (attempt.status === AttemptStatus.IN_PROGRESS)
+      throw AppError.forbidden('Answers are hidden until the attempt is submitted', 'ATTEMPT_NOT_SUBMITTED');
     this.assertResultVisible(attempt.rulesSnapshot as unknown as RulesSnapshot);
-    const answers = await this.prisma.attemptAnswer.findMany({ where: { attemptId }, orderBy: { position: 'asc' } });
+    const answers = await this.prisma.attemptAnswer.findMany({
+      where: { attemptId },
+      orderBy: { position: 'asc' },
+    });
     const versions = await this.questions.loadVersions(answers.map((a) => a.questionVersionId));
     return answers.map((a) => {
       const v = versions.get(a.questionVersionId)!;
@@ -489,9 +636,18 @@ export class AttemptsService {
   }
 
   async history(userId: string, q: AttemptQueryDto) {
-    const where: Prisma.ExamAttemptWhereInput = { userId, status: q.status, templateVersion: q.templateId ? { templateId: q.templateId } : undefined };
+    const where: Prisma.ExamAttemptWhereInput = {
+      userId,
+      status: q.status,
+      templateVersion: q.templateId ? { templateId: q.templateId } : undefined,
+    };
     const [rows, total] = await this.prisma.$transaction([
-      this.prisma.examAttempt.findMany({ where, include: { result: true }, orderBy: { startedAt: q.sortOrder }, ...pageArgs(q) }),
+      this.prisma.examAttempt.findMany({
+        where,
+        include: { result: true },
+        orderBy: { startedAt: q.sortOrder },
+        ...pageArgs(q),
+      }),
       this.prisma.examAttempt.count({ where }),
     ]);
     return PageResult.of(
@@ -526,7 +682,12 @@ export class AttemptsService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.attemptAnswer.findMany({
         where,
-        include: { questionVersion: { select: { stem: true, rubric: true, question: { select: { type: true, code: true } } } }, attempt: { select: { submittedAt: true } } },
+        include: {
+          questionVersion: {
+            select: { stem: true, rubric: true, question: { select: { type: true, code: true } } },
+          },
+          attempt: { select: { submittedAt: true } },
+        },
         orderBy: { attempt: { submittedAt: 'asc' } },
         ...pageArgs(q),
       }),
@@ -551,25 +712,54 @@ export class AttemptsService {
   }
 
   async evaluateAnswer(answerId: string, dto: EvaluateAnswerDto, evaluator: AuthUser, ctx: RequestContext) {
-    const answer = await this.prisma.attemptAnswer.findUnique({ where: { id: answerId }, include: { attempt: true } });
+    const answer = await this.prisma.attemptAnswer.findUnique({
+      where: { id: answerId },
+      include: { attempt: true },
+    });
     if (!answer) throw AppError.notFound('Answer');
-    if (answer.attempt.userId === evaluator.id) throw AppError.forbidden('You cannot evaluate your own attempt', 'SELF_EVALUATION_FORBIDDEN');
-    if (!([EvaluationStatus.MANUAL_PENDING, EvaluationStatus.MANUAL_EVALUATED] as EvaluationStatus[]).includes(answer.evaluationStatus)) {
+    if (answer.attempt.userId === evaluator.id)
+      throw AppError.forbidden('You cannot evaluate your own attempt', 'SELF_EVALUATION_FORBIDDEN');
+    if (
+      !([EvaluationStatus.MANUAL_PENDING, EvaluationStatus.MANUAL_EVALUATED] as EvaluationStatus[]).includes(
+        answer.evaluationStatus,
+      )
+    ) {
       throw AppError.badRequest('NOT_MANUALLY_GRADED', 'This answer is graded automatically');
     }
     const max = toCenti(answer.maxMarks);
     const awarded = toCenti(dto.awardedMarks);
     if (awarded < 0 || awarded > max) {
-      throw new AppError('IMPOSSIBLE_MARKS', `Awarded marks must be between 0 and ${fromCenti(max)}`, HttpStatus.UNPROCESSABLE_ENTITY);
+      throw new AppError(
+        'IMPOSSIBLE_MARKS',
+        `Awarded marks must be between 0 and ${fromCenti(max)}`,
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
     }
     const before = { awardedMarks: decToNumber(answer.awardedMarks), status: answer.evaluationStatus };
     await this.prisma.$transaction(async (tx) => {
       await tx.attemptAnswer.update({
         where: { id: answerId },
-        data: { awardedMarks: centiToDecimal(awarded), evaluationStatus: EvaluationStatus.MANUAL_EVALUATED, evaluatorId: evaluator.id, evaluatorComment: dto.comment, evaluatedAt: new Date() },
+        data: {
+          awardedMarks: centiToDecimal(awarded),
+          evaluationStatus: EvaluationStatus.MANUAL_EVALUATED,
+          evaluatorId: evaluator.id,
+          evaluatorComment: dto.comment,
+          evaluatedAt: new Date(),
+        },
       });
       await this.evaluate(tx, answer.attemptId);
-      await this.audit.record({ actorId: evaluator.id, action: 'attempt.answer.evaluate', entityType: 'AttemptAnswer', entityId: answerId, before, after: dto, ctx }, tx);
+      await this.audit.record(
+        {
+          actorId: evaluator.id,
+          action: 'attempt.answer.evaluate',
+          entityType: 'AttemptAnswer',
+          entityId: answerId,
+          before,
+          after: dto,
+          ctx,
+        },
+        tx,
+      );
     });
     const result = await this.prisma.attemptResult.findUnique({ where: { attemptId: answer.attemptId } });
     if (result?.status === ResultStatus.FINAL && before.status === EvaluationStatus.MANUAL_PENDING) {
@@ -586,16 +776,32 @@ export class AttemptsService {
   }
 
   async adminList(q: AdminAttemptQueryDto) {
-    const where: Prisma.ExamAttemptWhereInput = { userId: q.userId, status: q.status, templateVersion: q.templateId ? { templateId: q.templateId } : undefined };
+    const where: Prisma.ExamAttemptWhereInput = {
+      userId: q.userId,
+      status: q.status,
+      templateVersion: q.templateId ? { templateId: q.templateId } : undefined,
+    };
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.examAttempt.findMany({ where, include: { result: true }, orderBy: { startedAt: q.sortOrder }, ...pageArgs(q) }),
+      this.prisma.examAttempt.findMany({
+        where,
+        include: { result: true },
+        orderBy: { startedAt: q.sortOrder },
+        ...pageArgs(q),
+      }),
       this.prisma.examAttempt.count({ where }),
     ]);
-    return PageResult.of(items.map(({ seed: _seed, ...a }) => a), total, q);
+    return PageResult.of(
+      items.map(({ seed: _seed, ...a }) => a),
+      total,
+      q,
+    );
   }
 
   async adminGet(id: string) {
-    const attempt = await this.prisma.examAttempt.findUnique({ where: { id }, include: { result: true, answers: { orderBy: { position: 'asc' } } } });
+    const attempt = await this.prisma.examAttempt.findUnique({
+      where: { id },
+      include: { result: true, answers: { orderBy: { position: 'asc' } } },
+    });
     if (!attempt) throw AppError.notFound('Attempt');
     return attempt;
   }
@@ -609,7 +815,13 @@ export class AttemptsService {
       take: 200,
     });
     let n = 0;
-    for (const a of due) if (await this.finalize(a.id, true).catch((e: Error) => (this.logger.error(`Auto-submit ${a.id} failed: ${e.message}`), false))) n++;
+    for (const a of due)
+      if (
+        await this.finalize(a.id, true).catch(
+          (e: Error) => (this.logger.error(`Auto-submit ${a.id} failed: ${e.message}`), false),
+        )
+      )
+        n++;
     return n;
   }
 
@@ -629,7 +841,10 @@ export class AttemptsService {
 
   private assertResultVisible(rules: RulesSnapshot) {
     if (!this.resultVisible(rules)) {
-      throw AppError.forbidden('Results are published after the exam window closes', 'RESULT_NOT_YET_PUBLISHED');
+      throw AppError.forbidden(
+        'Results are published after the exam window closes',
+        'RESULT_NOT_YET_PUBLISHED',
+      );
     }
   }
 

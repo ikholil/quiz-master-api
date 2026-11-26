@@ -18,7 +18,9 @@ export class PracticeController {
   }
 
   @Post('sessions')
-  @ApiOperation({ summary: 'Create a practice set (topic, subject, exam, weak topics, wrong answers or mixed)' })
+  @ApiOperation({
+    summary: 'Create a practice set (topic, subject, exam, weak topics, wrong answers or mixed)',
+  })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreatePracticeDto) {
     return this.practice.create(user.id, dto);
   }
@@ -35,7 +37,12 @@ export class PracticeController {
 
   @Post('sessions/:id/answers/:answerId')
   @HttpCode(200)
-  answer(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Param('answerId', ParseUUIDPipe) answerId: string, @Body() dto: PracticeAnswerDto) {
+  answer(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('answerId', ParseUUIDPipe) answerId: string,
+    @Body() dto: PracticeAnswerDto,
+  ) {
     return this.practice.answer(user.id, id, answerId, dto);
   }
 

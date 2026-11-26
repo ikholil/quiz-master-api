@@ -1,6 +1,13 @@
 import type { Payment } from '@prisma/client';
 import { createHash } from 'node:crypto';
-import { InitiateContext, InitiateResult, InvalidWebhookError, PaymentProvider, VerifyResult, WebhookEvent } from './payment-provider';
+import {
+  InitiateContext,
+  InitiateResult,
+  InvalidWebhookError,
+  PaymentProvider,
+  VerifyResult,
+  WebhookEvent,
+} from './payment-provider';
 
 const md5 = (s: string) => createHash('md5').update(s).digest('hex');
 
@@ -49,16 +56,43 @@ export class SslCommerzProvider implements PaymentProvider {
       product_profile: 'non-physical-goods',
       value_a: payment.id,
     });
-    const res = await fetch(`${this.base}/gwprocess/v4/api.php`, { method: 'POST', body: form, signal: AbortSignal.timeout(20000) });
-    const json = (await res.json()) as { status: string; GatewayPageURL?: string; sessionkey?: string; failedreason?: string };
-    if (json.status !== 'SUCCESS' || !json.GatewayPageURL) throw new Error(`SSLCommerz session failed: ${json.failedreason ?? json.status}`);
+    const res = await fetch(`${this.base}/gwprocess/v4/api.php`, {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(20000),
+    });
+    const json = (await res.json()) as {
+      status: string;
+      GatewayPageURL?: string;
+      sessionkey?: string;
+      failedreason?: string;
+    };
+    if (json.status !== 'SUCCESS' || !json.GatewayPageURL)
+      throw new Error(`SSLCommerz session failed: ${json.failedreason ?? json.status}`);
     return { redirectUrl: json.GatewayPageURL, providerRef: json.sessionkey, raw: { status: json.status } };
   }
 
   async verify(payment: Payment): Promise<VerifyResult> {
-    const qs = new URLSearchParams({ tran_id: payment.merchantTxnId, store_id: this.storeId!, store_passwd: this.storePassword!, format: 'json' });
-    const res = await fetch(`${this.base}/validator/api/merchantTransIDvalidationAPI.php?${qs}`, { signal: AbortSignal.timeout(20000) });
-    const json = (await res.json()) as { APIConnect: string; no_of_trans_found?: number; element?: Array<{ status: string; amount: string; currency: string; val_id: string; bank_tran_id: string }> };
+    const qs = new URLSearchParams({
+      tran_id: payment.merchantTxnId,
+      store_id: this.storeId!,
+      store_passwd: this.storePassword!,
+      format: 'json',
+    });
+    const res = await fetch(`${this.base}/validator/api/merchantTransIDvalidationAPI.php?${qs}`, {
+      signal: AbortSignal.timeout(20000),
+    });
+    const json = (await res.json()) as {
+      APIConnect: string;
+      no_of_trans_found?: number;
+      element?: Array<{
+        status: string;
+        amount: string;
+        currency: string;
+        val_id: string;
+        bank_tran_id: string;
+      }>;
+    };
     if (json.APIConnect !== 'DONE') throw new Error(`SSLCommerz validation API: ${json.APIConnect}`);
     const el = json.element ?? [];
     const valid = el.find((e) => e.status === 'VALID' || e.status === 'VALIDATED');
@@ -71,11 +105,16 @@ export class SslCommerzProvider implements PaymentProvider {
         raw: { val_id: valid.val_id, bank_tran_id: valid.bank_tran_id, status: valid.status },
       };
     }
-    if (el.length && el.every((e) => ['FAILED', 'CANCELLED', 'UNATTEMPTED', 'EXPIRED'].includes(e.status))) return { status: 'FAILED', raw: { statuses: el.map((e) => e.status) } };
+    if (el.length && el.every((e) => ['FAILED', 'CANCELLED', 'UNATTEMPTED', 'EXPIRED'].includes(e.status)))
+      return { status: 'FAILED', raw: { statuses: el.map((e) => e.status) } };
     return { status: 'PENDING' };
   }
 
-  async parseWebhook(_headers: Record<string, string | string[] | undefined>, _raw: Buffer, body: Record<string, unknown>): Promise<WebhookEvent> {
+  async parseWebhook(
+    _headers: Record<string, string | string[] | undefined>,
+    _raw: Buffer,
+    body: Record<string, unknown>,
+  ): Promise<WebhookEvent> {
     const fields = Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v ?? '')]));
     const { verify_sign: sign, verify_key: keyList, tran_id: tranId, val_id: valId } = fields;
     if (!sign || !keyList || !tranId) throw new InvalidWebhookError('Missing SSLCommerz signature fields');
@@ -83,7 +122,11 @@ export class SslCommerzProvider implements PaymentProvider {
     const data: Record<string, string> = { ...fields, store_passwd: md5(this.storePassword!) };
     const expected = md5(keys.map((k) => `${k}=${data[k] ?? ''}`).join('&'));
     if (expected !== sign) throw new InvalidWebhookError('Invalid SSLCommerz verify_sign');
-    return { eventId: valId || `${tranId}:${fields.status}`, merchantTxnId: tranId, raw: { status: fields.status, val_id: valId, amount: fields.amount, card_type: fields.card_type } };
+    return {
+      eventId: valId || `${tranId}:${fields.status}`,
+      merchantTxnId: tranId,
+      raw: { status: fields.status, val_id: valId, amount: fields.amount, card_type: fields.card_type },
+    };
   }
 
   async refund(payment: Payment, amountMinor: number, reason: string) {
@@ -97,9 +140,20 @@ export class SslCommerzProvider implements PaymentProvider {
       store_passwd: this.storePassword!,
       format: 'json',
     });
-    const res = await fetch(`${this.base}/validator/api/merchantTransIDvalidationAPI.php?${qs}`, { signal: AbortSignal.timeout(20000) });
-    const json = (await res.json()) as { APIConnect: string; status?: string; refund_ref_id?: string; errorReason?: string };
-    if (json.APIConnect !== 'DONE' || !json.refund_ref_id) throw new Error(`SSLCommerz refund failed: ${json.errorReason ?? json.status ?? json.APIConnect}`);
-    return { providerRef: json.refund_ref_id, status: json.status === 'success' ? ('COMPLETED' as const) : ('PROCESSING' as const) };
+    const res = await fetch(`${this.base}/validator/api/merchantTransIDvalidationAPI.php?${qs}`, {
+      signal: AbortSignal.timeout(20000),
+    });
+    const json = (await res.json()) as {
+      APIConnect: string;
+      status?: string;
+      refund_ref_id?: string;
+      errorReason?: string;
+    };
+    if (json.APIConnect !== 'DONE' || !json.refund_ref_id)
+      throw new Error(`SSLCommerz refund failed: ${json.errorReason ?? json.status ?? json.APIConnect}`);
+    return {
+      providerRef: json.refund_ref_id,
+      status: json.status === 'success' ? ('COMPLETED' as const) : ('PROCESSING' as const),
+    };
   }
 }

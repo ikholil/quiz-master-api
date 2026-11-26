@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { KnowledgeSourceStatus, KnowledgeVisibility } from '@prisma/client';
-import { IsBoolean, IsEnum, IsIn, IsOptional, IsString, IsUrl, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { SearchPaginationQueryDto } from '../../common/dto/pagination.dto';
 import { ALL_FEATURES } from '../subscriptions/features';
 
@@ -13,7 +23,10 @@ export class CreateKnowledgeSourceDto {
   @IsOptional() @IsIn(['text/plain', 'text/markdown', 'text/html', 'application/json']) mimeType?: string;
   @IsOptional() @IsUUID() examId?: string;
   @IsOptional() @IsUUID() topicId?: string;
-  @ApiPropertyOptional({ enum: KnowledgeVisibility }) @IsOptional() @IsEnum(KnowledgeVisibility) visibility?: KnowledgeVisibility;
+  @ApiPropertyOptional({ enum: KnowledgeVisibility })
+  @IsOptional()
+  @IsEnum(KnowledgeVisibility)
+  visibility?: KnowledgeVisibility;
   @ApiPropertyOptional({ enum: ALL_FEATURES }) @IsOptional() @IsIn(ALL_FEATURES) requiredFeature?: string;
   /** e.g. official syllabus or circular copied from the authority's website. */
   @IsOptional() @IsBoolean() isAuthoritative?: boolean;
@@ -25,15 +38,24 @@ export class UpdateKnowledgeSourceDto {
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsUUID() examId?: string;
   @IsOptional() @IsUUID() topicId?: string;
-  @ApiPropertyOptional({ enum: KnowledgeVisibility }) @IsOptional() @IsEnum(KnowledgeVisibility) visibility?: KnowledgeVisibility;
+  @ApiPropertyOptional({ enum: KnowledgeVisibility })
+  @IsOptional()
+  @IsEnum(KnowledgeVisibility)
+  visibility?: KnowledgeVisibility;
   @ApiPropertyOptional({ enum: ALL_FEATURES }) @IsOptional() @IsIn(ALL_FEATURES) requiredFeature?: string;
   @IsOptional() @IsBoolean() isAuthoritative?: boolean;
   @IsOptional() @IsUrl({ require_protocol: true }) sourceUrl?: string;
 }
 
 export class KnowledgeQueryDto extends SearchPaginationQueryDto {
-  @ApiPropertyOptional({ enum: KnowledgeSourceStatus }) @IsOptional() @IsEnum(KnowledgeSourceStatus) status?: KnowledgeSourceStatus;
-  @ApiPropertyOptional({ enum: KnowledgeVisibility }) @IsOptional() @IsEnum(KnowledgeVisibility) visibility?: KnowledgeVisibility;
+  @ApiPropertyOptional({ enum: KnowledgeSourceStatus })
+  @IsOptional()
+  @IsEnum(KnowledgeSourceStatus)
+  status?: KnowledgeSourceStatus;
+  @ApiPropertyOptional({ enum: KnowledgeVisibility })
+  @IsOptional()
+  @IsEnum(KnowledgeVisibility)
+  visibility?: KnowledgeVisibility;
   @IsOptional() @IsUUID() examId?: string;
 }
 

@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Global, Module, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Global,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminOnly, CurrentUser, ReqContext } from '../../common/decorators/auth.decorators';
 import { ApiEnvelope } from '../../common/swagger/api-envelope';
@@ -33,14 +44,24 @@ export class RbacController {
 
   @Patch('roles/:id')
   @AdminOnly(PERMISSIONS.ROLES_MANAGE)
-  updateRole(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateRoleDto, @CurrentUser() user: AuthUser, @ReqContext() ctx: RequestContext) {
+  updateRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRoleDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.rbac.updateRole(id, dto, user.id, ctx);
   }
 
   @Put('users/:id/roles')
   @AdminOnly(PERMISSIONS.ROLES_MANAGE)
   @ApiEnvelope(UserAccessResponse)
-  setUserRoles(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetUserRolesDto, @CurrentUser() user: AuthUser, @ReqContext() ctx: RequestContext) {
+  setUserRoles(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetUserRolesDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.rbac.setUserRoles(id, dto.roles, user.id, ctx);
   }
 }

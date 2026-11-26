@@ -51,7 +51,9 @@ export class NotificationsService {
         body: input.body,
         data: (input.data ?? undefined) as Prisma.InputJsonValue | undefined,
         channels,
-        status: channels.every((c) => c === NotificationChannel.IN_APP) ? NotificationStatus.SENT : NotificationStatus.QUEUED,
+        status: channels.every((c) => c === NotificationChannel.IN_APP)
+          ? NotificationStatus.SENT
+          : NotificationStatus.QUEUED,
         sentAt: channels.every((c) => c === NotificationChannel.IN_APP) ? new Date() : null,
       },
     });
@@ -82,7 +84,10 @@ export class NotificationsService {
   }
 
   async markRead(userId: string, id: string) {
-    const res = await this.prisma.notification.updateMany({ where: { id, userId, readAt: null }, data: { readAt: new Date() } });
+    const res = await this.prisma.notification.updateMany({
+      where: { id, userId, readAt: null },
+      data: { readAt: new Date() },
+    });
     if (!res.count) {
       const exists = await this.prisma.notification.count({ where: { id, userId } });
       if (!exists) throw AppError.notFound('Notification');
@@ -91,7 +96,10 @@ export class NotificationsService {
   }
 
   async markAllRead(userId: string) {
-    const res = await this.prisma.notification.updateMany({ where: { userId, readAt: null }, data: { readAt: new Date() } });
+    const res = await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
     return { updated: res.count };
   }
 
@@ -115,21 +123,30 @@ export class NotificationsService {
       throw AppError.badRequest('EMPTY_SEGMENT', 'Specify a target segment');
     }
     const job = await this.queue.add(JOBS.BROADCAST_NOTIFICATION, { segment, input });
-    await this.audit.record({ actorId, action: 'notification.broadcast', entityType: 'Notification', metadata: { segment, title: input.title, jobId: job.id }, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'notification.broadcast',
+      entityType: 'Notification',
+      metadata: { segment, title: input.title, jobId: job.id },
+      ctx,
+    });
     return { queued: true, jobId: job.id };
   }
 
   /** Resolves a broadcast segment to user ids in batches (used by the worker). */
   async *segmentUsers(segment: BroadcastSegment, batchSize = 500): AsyncGenerator<string[]> {
     if (segment.userIds?.length) {
-      for (let i = 0; i < segment.userIds.length; i += batchSize) yield segment.userIds.slice(i, i + batchSize);
+      for (let i = 0; i < segment.userIds.length; i += batchSize)
+        yield segment.userIds.slice(i, i + batchSize);
       return;
     }
     const where: Prisma.UserWhereInput = {
       status: 'ACTIVE',
       deletedAt: null,
       profile: segment.examId ? { targetExamIds: { has: segment.examId } } : undefined,
-      subscriptions: segment.planCode ? { some: { status: 'ACTIVE', plan: { code: segment.planCode } } } : undefined,
+      subscriptions: segment.planCode
+        ? { some: { status: 'ACTIVE', plan: { code: segment.planCode } } }
+        : undefined,
     };
     let cursor: string | undefined;
     for (;;) {

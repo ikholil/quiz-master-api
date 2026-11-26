@@ -22,7 +22,11 @@ export class LocalProvider implements AiProvider {
   }
 
   async embed(texts: string[]) {
-    return { vectors: texts.map((t) => hashEmbedding(t)), model: 'local-hash-embedding-v1', inputTokens: texts.reduce((n, t) => n + estimateTokens(t), 0) };
+    return {
+      vectors: texts.map((t) => hashEmbedding(t)),
+      model: 'local-hash-embedding-v1',
+      inputTokens: texts.reduce((n, t) => n + estimateTokens(t), 0),
+    };
   }
 
   async chat(req: ChatRequest): Promise<ChatResult> {
@@ -42,7 +46,8 @@ export class LocalProvider implements AiProvider {
     return {
       text,
       model: 'local-extractive-v1',
-      inputTokens: estimateTokens(req.system) + req.messages.reduce((n, m) => n + estimateTokens(m.content), 0),
+      inputTokens:
+        estimateTokens(req.system) + req.messages.reduce((n, m) => n + estimateTokens(m.content), 0),
       outputTokens: estimateTokens(text),
     };
   }

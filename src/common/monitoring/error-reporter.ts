@@ -27,8 +27,10 @@ export class ErrorReporter {
       stack: err.stack?.split('\n').slice(0, 8).join('\n'),
       at: new Date().toISOString(),
     };
-    fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch((e: Error) =>
-      this.logger.warn(`Error webhook failed: ${e.message}`),
-    );
+    fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }).catch((e: Error) => this.logger.warn(`Error webhook failed: ${e.message}`));
   }
 }

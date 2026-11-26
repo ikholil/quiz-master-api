@@ -8,26 +8,36 @@ const md5 = (s: string) => createHash('md5').update(s).digest('hex');
 
 describe('SandboxPaymentProvider webhook verification', () => {
   const store = new Map<string, string>();
-  const redis = { set: jest.fn(async (k: string, v: string) => store.set(k, v)), get: jest.fn(async (k: string) => store.get(k) ?? null) };
+  const redis = {
+    set: jest.fn(async (k: string, v: string) => store.set(k, v)),
+    get: jest.fn(async (k: string) => store.get(k) ?? null),
+  };
   const provider = new SandboxPaymentProvider('secret', redis as never, 'http://localhost');
   const body = { eventId: 'e1', merchantTxnId: 'QM1', status: 'SUCCEEDED', amountMinor: 29900 };
   const raw = Buffer.from(JSON.stringify(body));
 
   it('rejects a missing or forged signature', async () => {
     await expect(provider.parseWebhook({}, raw, body)).rejects.toBeInstanceOf(InvalidWebhookError);
-    await expect(provider.parseWebhook({ 'x-sandbox-signature': hmacSha256('wrong', raw) }, raw, body)).rejects.toBeInstanceOf(InvalidWebhookError);
+    await expect(
+      provider.parseWebhook({ 'x-sandbox-signature': hmacSha256('wrong', raw) }, raw, body),
+    ).rejects.toBeInstanceOf(InvalidWebhookError);
   });
 
   it('rejects a body tampered after signing', async () => {
     const sig = hmacSha256('secret', raw);
     const tampered = Buffer.from(JSON.stringify({ ...body, amountMinor: 1 }));
-    await expect(provider.parseWebhook({ 'x-sandbox-signature': sig }, tampered, { ...body, amountMinor: 1 })).rejects.toBeInstanceOf(InvalidWebhookError);
+    await expect(
+      provider.parseWebhook({ 'x-sandbox-signature': sig }, tampered, { ...body, amountMinor: 1 }),
+    ).rejects.toBeInstanceOf(InvalidWebhookError);
   });
 
   it('accepts a valid signature and the verify call then reports the signed status', async () => {
     const ev = await provider.parseWebhook({ 'x-sandbox-signature': hmacSha256('secret', raw) }, raw, body);
     expect(ev).toMatchObject({ eventId: 'e1', merchantTxnId: 'QM1' });
-    await expect(provider.verify({ merchantTxnId: 'QM1' } as never)).resolves.toMatchObject({ status: 'SUCCEEDED', amountMinor: 29900 });
+    await expect(provider.verify({ merchantTxnId: 'QM1' } as never)).resolves.toMatchObject({
+      status: 'SUCCEEDED',
+      amountMinor: 29900,
+    });
   });
 });
 
@@ -43,10 +53,19 @@ describe('SslCommerzProvider IPN signature', () => {
   );
 
   it('accepts a correctly signed IPN', async () => {
-    await expect(provider.parseWebhook({}, Buffer.alloc(0), { ...fields, verify_key: keys, verify_sign: sign })).resolves.toMatchObject({ eventId: 'V1', merchantTxnId: 'QM1' });
+    await expect(
+      provider.parseWebhook({}, Buffer.alloc(0), { ...fields, verify_key: keys, verify_sign: sign }),
+    ).resolves.toMatchObject({ eventId: 'V1', merchantTxnId: 'QM1' });
   });
 
   it('rejects a modified amount', async () => {
-    await expect(provider.parseWebhook({}, Buffer.alloc(0), { ...fields, amount: '1.00', verify_key: keys, verify_sign: sign })).rejects.toBeInstanceOf(InvalidWebhookError);
+    await expect(
+      provider.parseWebhook({}, Buffer.alloc(0), {
+        ...fields,
+        amount: '1.00',
+        verify_key: keys,
+        verify_sign: sign,
+      }),
+    ).rejects.toBeInstanceOf(InvalidWebhookError);
   });
 });

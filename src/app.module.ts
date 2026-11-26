@@ -57,9 +57,13 @@ import { UsersModule } from './modules/users/users.module';
           level: cfg.logLevel,
           genReqId: (req: IncomingMessage) => {
             const incoming = req.headers['x-request-id'];
-            return typeof incoming === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(incoming) ? incoming : randomUUID();
+            return typeof incoming === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(incoming)
+              ? incoming
+              : randomUUID();
           },
-          customProps: (req: IncomingMessage) => ({ userId: (req as IncomingMessage & { user?: { id: string } }).user?.id }),
+          customProps: (req: IncomingMessage) => ({
+            userId: (req as IncomingMessage & { user?: { id: string } }).user?.id,
+          }),
           redact: {
             paths: [
               'req.headers.authorization',
@@ -83,7 +87,8 @@ import { UsersModule } from './modules/users/users.module';
             }),
           },
           autoLogging: { ignore: (req: IncomingMessage) => req.url?.startsWith('/api/v1/health') ?? false },
-          transport: cfg.env === 'development' ? { target: 'pino-pretty', options: { singleLine: true } } : undefined,
+          transport:
+            cfg.env === 'development' ? { target: 'pino-pretty', options: { singleLine: true } } : undefined,
         },
       }),
     }),

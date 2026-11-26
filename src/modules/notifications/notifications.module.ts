@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Global, HttpCode, Module, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Global,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { ClientPlatform, NotificationChannel } from '@prisma/client';
 import { Type } from 'class-transformer';
@@ -119,14 +131,23 @@ export class AdminNotificationsController {
   @AdminOnly(PERMISSIONS.NOTIFICATIONS_SEND)
   broadcast(@Body() dto: BroadcastDto, @CurrentUser() user: AuthUser, @ReqContext() ctx: RequestContext) {
     const { segment, ...input } = dto;
-    return this.notifications.broadcast(segment, { ...input, channels: input.channels ?? ['IN_APP', 'PUSH'] }, user.id, ctx);
+    return this.notifications.broadcast(
+      segment,
+      { ...input, channels: input.channels ?? ['IN_APP', 'PUSH'] },
+      user.id,
+      ctx,
+    );
   }
 }
 
 @Global()
 @Module({
   controllers: [NotificationsController, AdminNotificationsController],
-  providers: [NotificationsService, ...deliveryProviders, ...workers(MessagingProcessor, NotificationsProcessor)],
+  providers: [
+    NotificationsService,
+    ...deliveryProviders,
+    ...workers(MessagingProcessor, NotificationsProcessor),
+  ],
   exports: [NotificationsService],
 })
 export class NotificationsModule {}

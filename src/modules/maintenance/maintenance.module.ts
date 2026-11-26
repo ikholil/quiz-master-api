@@ -23,18 +23,47 @@ export class CleanupService {
     const now = Date.now();
     const [otps, tokens, sessions] = await Promise.all([
       this.prisma.otpVerification.deleteMany({ where: { createdAt: { lt: new Date(now - 86_400_000) } } }),
-      this.prisma.refreshToken.deleteMany({ where: { OR: [{ expiresAt: { lt: new Date() } }, { usedAt: { lt: new Date(now - 30 * 86_400_000) } }] } }),
-      this.prisma.session.deleteMany({ where: { OR: [{ expiresAt: { lt: new Date(now - 30 * 86_400_000) } }, { revokedAt: { lt: new Date(now - 90 * 86_400_000) } }] } }),
+      this.prisma.refreshToken.deleteMany({
+        where: {
+          OR: [{ expiresAt: { lt: new Date() } }, { usedAt: { lt: new Date(now - 30 * 86_400_000) } }],
+        },
+      }),
+      this.prisma.session.deleteMany({
+        where: {
+          OR: [
+            { expiresAt: { lt: new Date(now - 30 * 86_400_000) } },
+            { revokedAt: { lt: new Date(now - 90 * 86_400_000) } },
+          ],
+        },
+      }),
     ]);
-    const exports = await this.prisma.dataExportRequest.findMany({ where: { status: DataExportStatus.READY, expiresAt: { lt: new Date() } } });
+    const exports = await this.prisma.dataExportRequest.findMany({
+      where: { status: DataExportStatus.READY, expiresAt: { lt: new Date() } },
+    });
     for (const e of exports) {
       if (e.fileId) {
         const file = await this.prisma.storedFile.findUnique({ where: { id: e.fileId } });
-        if (file) await this.files.remove(file.id, { id: file.ownerId ?? '', sessionId: '', roles: [], permissions: ['files.manage'] }).catch(() => undefined);
+        if (file)
+          await this.files
+            .remove(file.id, {
+              id: file.ownerId ?? '',
+              sessionId: '',
+              roles: [],
+              permissions: ['files.manage'],
+            })
+            .catch(() => undefined);
       }
-      await this.prisma.dataExportRequest.update({ where: { id: e.id }, data: { status: DataExportStatus.EXPIRED, fileId: null } });
+      await this.prisma.dataExportRequest.update({
+        where: { id: e.id },
+        data: { status: DataExportStatus.EXPIRED, fileId: null },
+      });
     }
-    const result = { otps: otps.count, refreshTokens: tokens.count, sessions: sessions.count, exports: exports.length };
+    const result = {
+      otps: otps.count,
+      refreshTokens: tokens.count,
+      sessions: sessions.count,
+      exports: exports.length,
+    };
     this.logger.log(`Cleanup: ${JSON.stringify(result)}`);
     return result;
   }
@@ -66,5 +95,9 @@ export class MaintenanceProcessor extends WorkerHost {
   }
 }
 
-@Module({ imports: [UsersModule], providers: [CleanupService, ...workers(MaintenanceProcessor)], exports: [CleanupService] })
+@Module({
+  imports: [UsersModule],
+  providers: [CleanupService, ...workers(MaintenanceProcessor)],
+  exports: [CleanupService],
+})
 export class MaintenanceModule {}

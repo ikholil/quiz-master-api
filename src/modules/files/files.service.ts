@@ -12,12 +12,36 @@ import { STORAGE_DRIVER, StorageDriver } from './storage/storage.driver';
 
 export const FILE_PURPOSES = {
   AVATAR: { mimes: ['image/jpeg', 'image/png', 'image/webp'], maxBytes: 2 * 1024 * 1024, adminOnly: false },
-  QUESTION_MEDIA: { mimes: ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'], maxBytes: 5 * 1024 * 1024, adminOnly: true },
-  MATERIAL: { mimes: ['application/pdf', 'image/jpeg', 'image/png', 'text/plain', 'text/markdown'], maxBytes: 50 * 1024 * 1024, adminOnly: true },
-  NOTICE: { mimes: ['application/pdf', 'image/jpeg', 'image/png'], maxBytes: 20 * 1024 * 1024, adminOnly: true },
-  QUESTION_IMPORT: { mimes: ['text/csv', 'application/json', 'text/plain', 'application/vnd.ms-excel'], maxBytes: 20 * 1024 * 1024, adminOnly: true },
-  KNOWLEDGE: { mimes: ['text/plain', 'text/markdown', 'text/html', 'application/json', 'application/pdf'], maxBytes: 30 * 1024 * 1024, adminOnly: true },
-  SUPPORT_ATTACHMENT: { mimes: ['image/jpeg', 'image/png', 'application/pdf'], maxBytes: 5 * 1024 * 1024, adminOnly: false },
+  QUESTION_MEDIA: {
+    mimes: ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'],
+    maxBytes: 5 * 1024 * 1024,
+    adminOnly: true,
+  },
+  MATERIAL: {
+    mimes: ['application/pdf', 'image/jpeg', 'image/png', 'text/plain', 'text/markdown'],
+    maxBytes: 50 * 1024 * 1024,
+    adminOnly: true,
+  },
+  NOTICE: {
+    mimes: ['application/pdf', 'image/jpeg', 'image/png'],
+    maxBytes: 20 * 1024 * 1024,
+    adminOnly: true,
+  },
+  QUESTION_IMPORT: {
+    mimes: ['text/csv', 'application/json', 'text/plain', 'application/vnd.ms-excel'],
+    maxBytes: 20 * 1024 * 1024,
+    adminOnly: true,
+  },
+  KNOWLEDGE: {
+    mimes: ['text/plain', 'text/markdown', 'text/html', 'application/json', 'application/pdf'],
+    maxBytes: 30 * 1024 * 1024,
+    adminOnly: true,
+  },
+  SUPPORT_ATTACHMENT: {
+    mimes: ['image/jpeg', 'image/png', 'application/pdf'],
+    maxBytes: 5 * 1024 * 1024,
+    adminOnly: false,
+  },
   DATA_EXPORT: { mimes: ['application/json'], maxBytes: 200 * 1024 * 1024, adminOnly: true },
 } as const;
 
@@ -68,12 +92,18 @@ export class FilesService {
       throw AppError.badRequest('UNSUPPORTED_FILE_TYPE', `Allowed types: ${rules.mimes.join(', ')}`);
     }
     if (file.size > rules.maxBytes || file.size > this.cfg.storage.maxUploadBytes) {
-      throw AppError.badRequest('FILE_TOO_LARGE', `Maximum size is ${Math.floor(rules.maxBytes / 1024 / 1024)} MB`);
+      throw AppError.badRequest(
+        'FILE_TOO_LARGE',
+        `Maximum size is ${Math.floor(rules.maxBytes / 1024 / 1024)} MB`,
+      );
     }
     if (file.size === 0 || !sniffMatches(file.mimetype, file.buffer)) {
       throw AppError.badRequest('FILE_CONTENT_MISMATCH', 'File content does not match its declared type');
     }
-    const safeExt = extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '').slice(0, 10);
+    const safeExt = extname(file.originalname)
+      .toLowerCase()
+      .replace(/[^a-z0-9.]/g, '')
+      .slice(0, 10);
     const now = new Date();
     const key = `${purpose.toLowerCase()}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${randomUUID()}${safeExt}`;
     await this.storage.put(key, file.buffer, file.mimetype);
@@ -93,11 +123,27 @@ export class FilesService {
   }
 
   /** Internal helper for background jobs (exports, generated documents). */
-  async storeGenerated(ownerId: string | null, name: string, mime: string, body: Buffer, purpose: FilePurpose): Promise<StoredFile> {
+  async storeGenerated(
+    ownerId: string | null,
+    name: string,
+    mime: string,
+    body: Buffer,
+    purpose: FilePurpose,
+  ): Promise<StoredFile> {
     const key = `${purpose.toLowerCase()}/${randomUUID()}-${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     await this.storage.put(key, body, mime);
     return this.prisma.storedFile.create({
-      data: { ownerId, storageKey: key, driver: this.storage.name, originalName: name, mimeType: mime, sizeBytes: body.length, checksum: sha256(body.toString('binary')), visibility: FileVisibility.PRIVATE, purpose },
+      data: {
+        ownerId,
+        storageKey: key,
+        driver: this.storage.name,
+        originalName: name,
+        mimeType: mime,
+        sizeBytes: body.length,
+        checksum: sha256(body.toString('binary')),
+        visibility: FileVisibility.PRIVATE,
+        purpose,
+      },
     });
   }
 
@@ -111,7 +157,12 @@ export class FilesService {
   async getDownloadUrl(id: string, user: AuthUser | undefined, ttlSeconds = 600) {
     const file = await this.getMeta(id, user);
     const url = await this.storage.signedUrl(file.storageKey, ttlSeconds, file.originalName);
-    return { url, expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(), mimeType: file.mimeType, sizeBytes: file.sizeBytes };
+    return {
+      url,
+      expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
+      mimeType: file.mimeType,
+      sizeBytes: file.sizeBytes,
+    };
   }
 
   async readBuffer(id: string): Promise<{ file: StoredFile; body: Buffer }> {
@@ -138,7 +189,11 @@ export class FilesService {
   private canRead(file: StoredFile, user: AuthUser | undefined): boolean {
     if (file.visibility === FileVisibility.PUBLIC) return true;
     if (!user) return false;
-    return file.ownerId === user.id || user.permissions.includes(PERMISSIONS.FILES_MANAGE) || user.permissions.includes(PERMISSIONS.ADMIN_ACCESS);
+    return (
+      file.ownerId === user.id ||
+      user.permissions.includes(PERMISSIONS.FILES_MANAGE) ||
+      user.permissions.includes(PERMISSIONS.ADMIN_ACCESS)
+    );
   }
 
   healthy() {

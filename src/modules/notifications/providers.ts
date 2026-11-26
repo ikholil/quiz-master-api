@@ -16,7 +16,12 @@ export interface EmailSender {
 }
 export interface PushSender {
   /** Returns tokens the provider reported as invalid (to be deleted). */
-  send(tokens: string[], title: string, body: string, data?: Record<string, string>): Promise<{ invalidTokens: string[] }>;
+  send(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<{ invalidTokens: string[] }>;
 }
 
 export const SMS_SENDER = 'SMS_SENDER';
@@ -48,7 +53,12 @@ export class HttpSmsSender implements SmsSender {
     const res = await fetch(this.url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify({ api_key: this.apiKey, senderid: this.senderId, number: phone.replace('+', ''), message: text }),
+      body: JSON.stringify({
+        api_key: this.apiKey,
+        senderid: this.senderId,
+        number: phone.replace('+', ''),
+        message: text,
+      }),
       signal: AbortSignal.timeout(this.timeoutMs),
     });
     if (!res.ok) throw new Error(`SMS gateway responded ${res.status}`);
@@ -125,7 +135,12 @@ export class FcmPushSender implements PushSender {
     return json.access_token;
   }
 
-  async send(tokens: string[], title: string, body: string, data?: Record<string, string>): Promise<{ invalidTokens: string[] }> {
+  async send(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<{ invalidTokens: string[] }> {
     const bearer = await this.token();
     const invalidTokens: string[] = [];
     await Promise.all(
@@ -133,7 +148,9 @@ export class FcmPushSender implements PushSender {
         const res = await fetch(`https://fcm.googleapis.com/v1/projects/${this.projectId}/messages:send`, {
           method: 'POST',
           headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ message: { token, notification: { title, body }, data, android: { priority: 'high' } } }),
+          body: JSON.stringify({
+            message: { token, notification: { title, body }, data, android: { priority: 'high' } },
+          }),
           signal: AbortSignal.timeout(10000),
         });
         if (res.status === 404 || res.status === 400) invalidTokens.push(token);
@@ -151,7 +168,8 @@ export const deliveryProviders = [
     useFactory: (cfg: AppConfig): SmsSender => {
       const n = cfg.notifications;
       if (n.smsProvider === 'http') {
-        if (!n.smsHttpUrl || !n.smsApiKey) throw new Error('SMS_HTTP_URL and SMS_API_KEY are required for SMS_PROVIDER=http');
+        if (!n.smsHttpUrl || !n.smsApiKey)
+          throw new Error('SMS_HTTP_URL and SMS_API_KEY are required for SMS_PROVIDER=http');
         return new HttpSmsSender(n.smsHttpUrl, n.smsApiKey, n.smsSenderId);
       }
       return new ConsoleSmsSender();
@@ -175,7 +193,8 @@ export const deliveryProviders = [
     useFactory: (cfg: AppConfig): PushSender => {
       const n = cfg.notifications;
       if (n.pushProvider === 'fcm') {
-        if (!n.fcmProjectId || !n.fcmClientEmail || !n.fcmPrivateKey) throw new Error('FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY are required');
+        if (!n.fcmProjectId || !n.fcmClientEmail || !n.fcmPrivateKey)
+          throw new Error('FCM_PROJECT_ID, FCM_CLIENT_EMAIL, FCM_PRIVATE_KEY are required');
         return new FcmPushSender(n.fcmProjectId, n.fcmClientEmail, n.fcmPrivateKey);
       }
       return new ConsolePushSender();

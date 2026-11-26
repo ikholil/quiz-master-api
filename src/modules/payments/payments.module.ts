@@ -1,10 +1,28 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Body, Controller, Get, Headers, HttpCode, Module, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Job } from 'bullmq';
 import type { Request } from 'express';
-import { AdminOnly, Authenticated, CurrentUser, Public, ReqContext } from '../../common/decorators/auth.decorators';
+import {
+  AdminOnly,
+  Authenticated,
+  CurrentUser,
+  Public,
+  ReqContext,
+} from '../../common/decorators/auth.decorators';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { AppError } from '../../common/errors/app-error';
 import { ApiEnvelope } from '../../common/swagger/api-envelope';
@@ -31,8 +49,16 @@ export class PaymentsController {
   @ApiHeader({ name: 'Idempotency-Key', required: false })
   @ApiOperation({ summary: 'Start a payment; open redirectUrl in a browser / custom tab' })
   @ApiEnvelope(PaymentResponse, { status: 201 })
-  initiate(@CurrentUser() u: AuthUser, @Body() dto: InitiatePaymentDto, @Headers('idempotency-key') key?: string) {
-    if (key !== undefined && !/^[A-Za-z0-9_-]{8,100}$/.test(key)) throw AppError.badRequest('INVALID_IDEMPOTENCY_KEY', 'Idempotency-Key must be 8-100 URL-safe characters');
+  initiate(
+    @CurrentUser() u: AuthUser,
+    @Body() dto: InitiatePaymentDto,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    if (key !== undefined && !/^[A-Za-z0-9_-]{8,100}$/.test(key))
+      throw AppError.badRequest(
+        'INVALID_IDEMPOTENCY_KEY',
+        'Idempotency-Key must be 8-100 URL-safe characters',
+      );
     return this.payments.initiate(u, dto, key);
   }
 
@@ -94,7 +120,12 @@ export class AdminPaymentsController {
 
   @Post(':id/refunds')
   @AdminOnly(PERMISSIONS.PAYMENTS_REFUND)
-  refund(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RefundDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  refund(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RefundDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.payments.refund(id, dto, u, ctx);
   }
 
@@ -112,11 +143,17 @@ export class PaymentsProcessor extends WorkerHost {
     super();
   }
   async process(job: Job): Promise<unknown> {
-    if (job.name === JOBS.PROCESS_WEBHOOK) return this.payments.confirm(job.data.paymentId as string, 'webhook').then((p) => p.status);
+    if (job.name === JOBS.PROCESS_WEBHOOK)
+      return this.payments.confirm(job.data.paymentId as string, 'webhook').then((p) => p.status);
     if (job.name === JOBS.RECONCILE_PAYMENTS) return this.payments.reconcile();
     return undefined;
   }
 }
 
-@Module({ imports: [CoursesModule], controllers: [PaymentsController, AdminPaymentsController], providers: [PaymentsService, ...workers(PaymentsProcessor)], exports: [PaymentsService] })
+@Module({
+  imports: [CoursesModule],
+  controllers: [PaymentsController, AdminPaymentsController],
+  providers: [PaymentsService, ...workers(PaymentsProcessor)],
+  exports: [PaymentsService],
+})
 export class PaymentsModule {}

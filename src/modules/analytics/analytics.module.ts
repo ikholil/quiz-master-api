@@ -22,7 +22,16 @@ class AdminAnalyticsQuery {
   @IsOptional() @IsISO8601({ strict: true }) to?: string;
 }
 
-export const METRICS = ['users.new', 'users.active', 'attempts.submitted', 'practice.answers', 'payments.revenue_minor', 'payments.count', 'ai.messages', 'ai.cost_micros'] as const;
+export const METRICS = [
+  'users.new',
+  'users.active',
+  'attempts.submitted',
+  'practice.answers',
+  'payments.revenue_minor',
+  'payments.count',
+  'ai.messages',
+  'ai.cost_micros',
+] as const;
 
 @Injectable()
 export class AnalyticsService {
@@ -34,11 +43,24 @@ export class AnalyticsService {
   async student(userId: string, q: StudentAnalyticsQuery) {
     const since = new Date(Date.now() - (q.days ?? 90) * 86_400_000);
     const results = await this.prisma.attemptResult.findMany({
-      where: { userId, evaluatedAt: { gte: since }, attempt: { templateVersion: q.examId ? { template: { examId: q.examId } } : undefined } },
+      where: {
+        userId,
+        evaluatedAt: { gte: since },
+        attempt: { templateVersion: q.examId ? { template: { examId: q.examId } } : undefined },
+      },
       orderBy: { evaluatedAt: 'asc' },
-      select: { attemptId: true, obtainedMarks: true, totalMarks: true, accuracy: true, evaluatedAt: true, status: true },
+      select: {
+        attemptId: true,
+        obtainedMarks: true,
+        totalMarks: true,
+        accuracy: true,
+        evaluatedAt: true,
+        status: true,
+      },
     });
-    const subjectRows = await this.prisma.$queryRaw<Array<{ subjectId: string; name: string; answered: bigint; correct: bigint }>>`
+    const subjectRows = await this.prisma.$queryRaw<
+      Array<{ subjectId: string; name: string; answered: bigint; correct: bigint }>
+    >`
       SELECT s.id AS "subjectId", s.name, COUNT(*) AS answered, COUNT(*) FILTER (WHERE x.correct) AS correct FROM (
         SELECT pa."questionId", pa."isCorrect" AS correct FROM practice_answers pa JOIN practice_sessions ps ON ps.id = pa."sessionId"
          WHERE ps."userId" = ${userId}::uuid AND pa."answeredAt" >= ${since} AND pa."isCorrect" IS NOT NULL
@@ -47,7 +69,9 @@ export class AnalyticsService {
          WHERE ea."userId" = ${userId}::uuid AND ea."submittedAt" >= ${since} AND aa."isCorrect" IS NOT NULL
       ) x JOIN questions q ON q.id = x."questionId" JOIN subjects s ON s.id = q."subjectId"
       GROUP BY s.id, s.name ORDER BY s.name`;
-    const practiceByDay = await this.prisma.$queryRaw<Array<{ day: Date; answered: bigint; correct: bigint }>>`
+    const practiceByDay = await this.prisma.$queryRaw<
+      Array<{ day: Date; answered: bigint; correct: bigint }>
+    >`
       SELECT date_trunc('day', pa."answeredAt" + interval '6 hours')::date AS day, COUNT(*) AS answered, COUNT(*) FILTER (WHERE pa."isCorrect") AS correct
         FROM practice_answers pa JOIN practice_sessions ps ON ps.id = pa."sessionId"
        WHERE ps."userId" = ${userId}::uuid AND pa."answeredAt" >= ${since}
@@ -65,11 +89,35 @@ export class AnalyticsService {
     return {
       attempts: {
         count: results.length,
-        averagePercent: finals.length ? Math.round((finals.reduce((s, r) => s + (decToNumber(r.obtainedMarks)! / decToNumber(r.totalMarks)!) * 100, 0) / finals.length) * 100) / 100 : null,
-        trend: results.map((r) => ({ attemptId: r.attemptId, date: r.evaluatedAt, obtained: decToNumber(r.obtainedMarks), total: decToNumber(r.totalMarks), accuracy: decToNumber(r.accuracy) })),
+        averagePercent: finals.length
+          ? Math.round(
+              (finals.reduce(
+                (s, r) => s + (decToNumber(r.obtainedMarks)! / decToNumber(r.totalMarks)!) * 100,
+                0,
+              ) /
+                finals.length) *
+                100,
+            ) / 100
+          : null,
+        trend: results.map((r) => ({
+          attemptId: r.attemptId,
+          date: r.evaluatedAt,
+          obtained: decToNumber(r.obtainedMarks),
+          total: decToNumber(r.totalMarks),
+          accuracy: decToNumber(r.accuracy),
+        })),
       },
-      subjects: subjectRows.map((s) => ({ subjectId: s.subjectId, name: s.name, answered: Number(s.answered), accuracy: Number(s.answered) ? Math.round((Number(s.correct) / Number(s.answered)) * 10000) / 100 : 0 })),
-      practice: practiceByDay.map((d) => ({ date: toIsoDate(d.day), answered: Number(d.answered), correct: Number(d.correct) })),
+      subjects: subjectRows.map((s) => ({
+        subjectId: s.subjectId,
+        name: s.name,
+        answered: Number(s.answered),
+        accuracy: Number(s.answered) ? Math.round((Number(s.correct) / Number(s.answered)) * 10000) / 100 : 0,
+      })),
+      practice: practiceByDay.map((d) => ({
+        date: toIsoDate(d.day),
+        answered: Number(d.answered),
+        correct: Number(d.correct),
+      })),
       streakDays: streak,
       activeDays: activeDays.size,
     };
@@ -79,18 +127,34 @@ export class AnalyticsService {
   async admin(q: AdminAnalyticsQuery) {
     const to = q.to ? parseIsoDate(q.to) : dhakaDate();
     const from = q.from ? parseIsoDate(q.from) : addDays(to, -29);
-    const rows = await this.prisma.analyticsDailyMetric.findMany({ where: { date: { gte: from, lte: to }, dimension: 'all' }, orderBy: { date: 'asc' } });
+    const rows = await this.prisma.analyticsDailyMetric.findMany({
+      where: { date: { gte: from, lte: to }, dimension: 'all' },
+      orderBy: { date: 'asc' },
+    });
     const series: Record<string, Array<{ date: string; value: number }>> = {};
     for (const r of rows) (series[r.metric] ??= []).push({ date: toIsoDate(r.date), value: r.value });
-    const [totalUsers, activeSubs, pendingEvaluations, openReports, openTickets, pendingReview] = await Promise.all([
-      this.prisma.user.count({ where: { deletedAt: null } }),
-      this.prisma.userSubscription.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.attemptAnswer.count({ where: { evaluationStatus: 'MANUAL_PENDING' } }),
-      this.prisma.contentReport.count({ where: { status: 'OPEN' } }),
-      this.prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'AWAITING_SUPPORT'] } } }),
-      this.prisma.question.count({ where: { latestVersion: { status: 'IN_REVIEW' }, deletedAt: null } }),
-    ]);
-    return { from: toIsoDate(from), to: toIsoDate(to), totals: { totalUsers, activeSubscriptions: activeSubs, pendingEvaluations, openReports, openTickets, questionsAwaitingReview: pendingReview }, series };
+    const [totalUsers, activeSubs, pendingEvaluations, openReports, openTickets, pendingReview] =
+      await Promise.all([
+        this.prisma.user.count({ where: { deletedAt: null } }),
+        this.prisma.userSubscription.count({ where: { status: 'ACTIVE' } }),
+        this.prisma.attemptAnswer.count({ where: { evaluationStatus: 'MANUAL_PENDING' } }),
+        this.prisma.contentReport.count({ where: { status: 'OPEN' } }),
+        this.prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'AWAITING_SUPPORT'] } } }),
+        this.prisma.question.count({ where: { latestVersion: { status: 'IN_REVIEW' }, deletedAt: null } }),
+      ]);
+    return {
+      from: toIsoDate(from),
+      to: toIsoDate(to),
+      totals: {
+        totalUsers,
+        activeSubscriptions: activeSubs,
+        pendingEvaluations,
+        openReports,
+        openTickets,
+        questionsAwaitingReview: pendingReview,
+      },
+      series,
+    };
   }
 
   /** Scheduled: aggregates one Dhaka calendar day (default: yesterday). Idempotent upserts. */
@@ -101,11 +165,20 @@ export class AnalyticsService {
     const [newUsers, active, attempts, practice, revenue, ai, aiCost] = await Promise.all([
       this.prisma.user.count({ where: { createdAt: range } }),
       this.prisma.session.groupBy({ by: ['userId'], where: { lastSeenAt: range } }).then((r) => r.length),
-      this.prisma.examAttempt.count({ where: { submittedAt: range, status: { not: AttemptStatus.IN_PROGRESS } } }),
+      this.prisma.examAttempt.count({
+        where: { submittedAt: range, status: { not: AttemptStatus.IN_PROGRESS } },
+      }),
       this.prisma.practiceAnswer.count({ where: { answeredAt: range } }),
-      this.prisma.payment.aggregate({ where: { paidAt: range, status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.PARTIALLY_REFUNDED] } }, _sum: { amountMinor: true }, _count: { _all: true } }),
+      this.prisma.payment.aggregate({
+        where: { paidAt: range, status: { in: [PaymentStatus.SUCCEEDED, PaymentStatus.PARTIALLY_REFUNDED] } },
+        _sum: { amountMinor: true },
+        _count: { _all: true },
+      }),
       this.prisma.aiMessage.count({ where: { createdAt: range, role: 'USER' } }),
-      this.prisma.aiUsageRecord.aggregate({ where: { createdAt: range }, _sum: { estimatedCostMicros: true } }),
+      this.prisma.aiUsageRecord.aggregate({
+        where: { createdAt: range },
+        _sum: { estimatedCostMicros: true },
+      }),
     ]);
     const values: Record<(typeof METRICS)[number], number> = {
       'users.new': newUsers,
@@ -153,10 +226,15 @@ export class AnalyticsProcessor extends WorkerHost {
     super();
   }
   async process(job: Job): Promise<unknown> {
-    if (job.name === JOBS.AGGREGATE_DAILY) return this.analytics.aggregateDay(job.data?.date ? parseIsoDate(job.data.date as string) : undefined);
+    if (job.name === JOBS.AGGREGATE_DAILY)
+      return this.analytics.aggregateDay(job.data?.date ? parseIsoDate(job.data.date as string) : undefined);
     return undefined;
   }
 }
 
-@Module({ controllers: [AnalyticsController], providers: [AnalyticsService, ...workers(AnalyticsProcessor)], exports: [AnalyticsService] })
+@Module({
+  controllers: [AnalyticsController],
+  providers: [AnalyticsService, ...workers(AnalyticsProcessor)],
+  exports: [AnalyticsService],
+})
 export class AnalyticsModule {}

@@ -21,7 +21,10 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [context.getHandler(), context.getClass()]);
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     const req = context.switchToHttp().getRequest<Request>();
     const header = req.headers.authorization;
     const token = header?.startsWith('Bearer ') ? header.slice(7).trim() : undefined;
@@ -36,7 +39,8 @@ export class JwtAuthGuard implements CanActivate {
       claims = this.sessions.verifyAccessToken(token);
     } catch (err) {
       if (isPublic) return true;
-      if (err instanceof TokenExpiredError) throw AppError.unauthorized('Access token expired', 'TOKEN_EXPIRED');
+      if (err instanceof TokenExpiredError)
+        throw AppError.unauthorized('Access token expired', 'TOKEN_EXPIRED');
       throw AppError.unauthorized('Invalid access token', 'TOKEN_INVALID');
     }
 
@@ -46,7 +50,12 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const access = await this.rbac.getAccess(claims.sub);
-    req.user = { id: claims.sub, sessionId: claims.sid, roles: access.roles, permissions: access.permissions };
+    req.user = {
+      id: claims.sub,
+      sessionId: claims.sid,
+      roles: access.roles,
+      permissions: access.permissions,
+    };
     return true;
   }
 }

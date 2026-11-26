@@ -40,18 +40,29 @@ export class EntitlementsService {
 
     const now = new Date();
     const rows = await this.prisma.entitlement.findMany({
-      where: { userId, revokedAt: null, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+      where: {
+        userId,
+        revokedAt: null,
+        startsAt: { lte: now },
+        OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+      },
     });
     const merged = new Map<string, ActiveEntitlement>();
     for (const r of rows) {
       const cur = merged.get(r.featureKey);
       const endsAt = r.endsAt?.toISOString() ?? null;
       if (!cur) {
-        merged.set(r.featureKey, { featureKey: r.featureKey, limitValue: r.limitValue, endsAt, sources: [r.source] });
+        merged.set(r.featureKey, {
+          featureKey: r.featureKey,
+          limitValue: r.limitValue,
+          endsAt,
+          sources: [r.source],
+        });
         continue;
       }
       // Most generous wins: unlimited beats any limit; later expiry wins.
-      cur.limitValue = cur.limitValue === null || r.limitValue === null ? null : Math.max(cur.limitValue, r.limitValue);
+      cur.limitValue =
+        cur.limitValue === null || r.limitValue === null ? null : Math.max(cur.limitValue, r.limitValue);
       cur.endsAt = cur.endsAt === null || endsAt === null ? null : cur.endsAt > endsAt ? cur.endsAt : endsAt;
       if (!cur.sources.includes(r.source)) cur.sources.push(r.source);
     }
@@ -89,7 +100,14 @@ export class EntitlementsService {
     await this.redis.del(`ent:${userId}`).catch(() => undefined);
   }
 
-  async grantFromPlan(tx: Tx, userId: string, subscriptionId: string, planId: string, startsAt: Date, endsAt: Date): Promise<void> {
+  async grantFromPlan(
+    tx: Tx,
+    userId: string,
+    subscriptionId: string,
+    planId: string,
+    startsAt: Date,
+    endsAt: Date,
+  ): Promise<void> {
     const features = await tx.planFeature.findMany({ where: { planId } });
     if (!features.length) return;
     await tx.entitlement.createMany({
@@ -106,11 +124,20 @@ export class EntitlementsService {
   }
 
   async revokeBySource(tx: Tx, source: EntitlementSource, sourceId: string): Promise<void> {
-    await tx.entitlement.updateMany({ where: { source, sourceId, revokedAt: null }, data: { revokedAt: new Date() } });
+    await tx.entitlement.updateMany({
+      where: { source, sourceId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
-  async adminGrant(userId: string, dto: { featureKey: string; limitValue?: number | null; endsAt?: string; reason: string }, actorId: string, ctx: RequestContext) {
-    if (!ALL_FEATURES.includes(dto.featureKey)) throw AppError.badRequest('UNKNOWN_FEATURE', 'Unknown feature key');
+  async adminGrant(
+    userId: string,
+    dto: { featureKey: string; limitValue?: number | null; endsAt?: string; reason: string },
+    actorId: string,
+    ctx: RequestContext,
+  ) {
+    if (!ALL_FEATURES.includes(dto.featureKey))
+      throw AppError.badRequest('UNKNOWN_FEATURE', 'Unknown feature key');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.deletedAt) throw AppError.notFound('User');
     const ent = await this.prisma.$transaction(async (tx) => {
@@ -123,7 +150,17 @@ export class EntitlementsService {
           endsAt: dto.endsAt ? new Date(dto.endsAt) : null,
         },
       });
-      await this.audit.record({ actorId, action: 'entitlement.grant', entityType: 'Entitlement', entityId: created.id, after: dto, ctx }, tx);
+      await this.audit.record(
+        {
+          actorId,
+          action: 'entitlement.grant',
+          entityType: 'Entitlement',
+          entityId: created.id,
+          after: dto,
+          ctx,
+        },
+        tx,
+      );
       return created;
     });
     await this.invalidate(userId);
@@ -135,7 +172,17 @@ export class EntitlementsService {
     if (!ent) throw AppError.notFound('Entitlement');
     await this.prisma.$transaction(async (tx) => {
       await tx.entitlement.update({ where: { id: entitlementId }, data: { revokedAt: new Date() } });
-      await this.audit.record({ actorId, action: 'entitlement.revoke', entityType: 'Entitlement', entityId: entitlementId, before: ent, ctx }, tx);
+      await this.audit.record(
+        {
+          actorId,
+          action: 'entitlement.revoke',
+          entityType: 'Entitlement',
+          entityId: entitlementId,
+          before: ent,
+          ctx,
+        },
+        tx,
+      );
     });
     await this.invalidate(ent.userId);
     return { ok: true };

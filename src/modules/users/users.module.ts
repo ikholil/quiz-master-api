@@ -1,10 +1,30 @@
-import { Body, Controller, Delete, Get, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminOnly, Authenticated, CurrentUser, ReqContext } from '../../common/decorators/auth.decorators';
 import { ApiEnvelope, ApiPaginated } from '../../common/swagger/api-envelope';
 import type { AuthUser, RequestContext } from '../../common/types/auth-user';
 import { PERMISSIONS } from '../rbac/permissions';
-import { AdminUserQueryDto, AdminUserResponse, DataExportResponse, DeleteAccountDto, MeResponse, UpdateProfileDto, UpdateUserStatusDto } from './users.dto';
+import {
+  AdminUserQueryDto,
+  AdminUserResponse,
+  DataExportResponse,
+  DeleteAccountDto,
+  MeResponse,
+  UpdateProfileDto,
+  UpdateUserStatusDto,
+} from './users.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('Me')
@@ -72,10 +92,19 @@ export class AdminUsersController {
 
   @Patch(':id/status')
   @AdminOnly(PERMISSIONS.USERS_MANAGE)
-  setStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserStatusDto, @CurrentUser() user: AuthUser, @ReqContext() ctx: RequestContext) {
+  setStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserStatusDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.users.adminSetStatus(id, dto, user.id, ctx);
   }
 }
 
-@Module({ controllers: [MeController, AdminUsersController], providers: [UsersService], exports: [UsersService] })
+@Module({
+  controllers: [MeController, AdminUsersController],
+  providers: [UsersService],
+  exports: [UsersService],
+})
 export class UsersModule {}

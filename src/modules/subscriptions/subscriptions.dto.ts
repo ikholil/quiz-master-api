@@ -34,7 +34,11 @@ export class CreatePlanDto {
   @IsInt() @Min(0) @Max(100_000_000) priceMinor: number;
   @IsInt() @Min(1) @Max(3660) durationDays: number;
   @IsOptional() @IsInt() sortOrder?: number;
-  @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => PlanFeatureDto) features: PlanFeatureDto[];
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => PlanFeatureDto)
+  features: PlanFeatureDto[];
 }
 
 export class UpdatePlanDto {
@@ -45,7 +49,12 @@ export class UpdatePlanDto {
   @IsOptional() @IsInt() @Min(1) @Max(3660) durationDays?: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsInt() sortOrder?: number;
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => PlanFeatureDto) features?: PlanFeatureDto[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => PlanFeatureDto)
+  features?: PlanFeatureDto[];
 }
 
 export class GrantEntitlementDto {

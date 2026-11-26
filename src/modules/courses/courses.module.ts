@@ -1,8 +1,40 @@
-import { Body, Controller, Get, HttpCode, Injectable, Module, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Injectable,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { EnrollmentStatus, Payment, Prisma, PublishStatus } from '@prisma/client';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUrl, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
-import { AdminOnly, Authenticated, CurrentUser, Public, ReqContext } from '../../common/decorators/auth.decorators';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+import {
+  AdminOnly,
+  Authenticated,
+  CurrentUser,
+  Public,
+  ReqContext,
+} from '../../common/decorators/auth.decorators';
 import { PageResult, pageArgs, SearchPaginationQueryDto } from '../../common/dto/pagination.dto';
 import { AppError } from '../../common/errors/app-error';
 import { addDays } from '../../common/utils/date.util';
@@ -65,13 +97,31 @@ export class CoursesService {
   ) {}
 
   async list(q: SearchPaginationQueryDto & { examId?: string }) {
-    const where: Prisma.CourseWhereInput = { status: PublishStatus.PUBLISHED, examId: q.examId, title: q.q ? { contains: q.q, mode: 'insensitive' } : undefined };
+    const where: Prisma.CourseWhereInput = {
+      status: PublishStatus.PUBLISHED,
+      examId: q.examId,
+      title: q.q ? { contains: q.q, mode: 'insensitive' } : undefined,
+    };
     const [rows, total] = await this.prisma.$transaction([
-      this.prisma.course.findMany({ where, include: { _count: { select: { lessons: true } } }, orderBy: { publishedAt: 'desc' }, ...pageArgs(q) }),
+      this.prisma.course.findMany({
+        where,
+        include: { _count: { select: { lessons: true } } },
+        orderBy: { publishedAt: 'desc' },
+        ...pageArgs(q),
+      }),
       this.prisma.course.count({ where }),
     ]);
     return PageResult.of(
-      rows.map((c) => ({ id: c.id, slug: c.slug, title: c.title, titleBn: c.titleBn, priceMinor: c.priceMinor, currency: c.currency, accessDays: c.accessDays, lessonCount: c._count.lessons })),
+      rows.map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        title: c.title,
+        titleBn: c.titleBn,
+        priceMinor: c.priceMinor,
+        currency: c.currency,
+        accessDays: c.accessDays,
+        lessonCount: c._count.lessons,
+      })),
       total,
       q,
     );
@@ -86,7 +136,13 @@ export class CoursesService {
     });
     if (!course) throw AppError.notFound('Course');
     const enrollment = userId ? await this.activeEnrollment(userId, course.id) : null;
-    const done = userId ? new Set((await this.prisma.lessonProgress.findMany({ where: { userId, lesson: { courseId: course.id } } })).map((p) => p.lessonId)) : new Set<string>();
+    const done = userId
+      ? new Set(
+          (
+            await this.prisma.lessonProgress.findMany({ where: { userId, lesson: { courseId: course.id } } })
+          ).map((p) => p.lessonId),
+        )
+      : new Set<string>();
     return {
       id: course.id,
       slug: course.slug,
@@ -119,10 +175,18 @@ export class CoursesService {
   }
 
   async enrollFree(userId: string, courseId: string) {
-    const course = await this.prisma.course.findFirst({ where: { id: courseId, status: PublishStatus.PUBLISHED } });
+    const course = await this.prisma.course.findFirst({
+      where: { id: courseId, status: PublishStatus.PUBLISHED },
+    });
     if (!course) throw AppError.notFound('Course');
-    if (course.priceMinor > 0) throw AppError.badRequest('PAYMENT_REQUIRED', 'This course is paid; start a payment with purpose COURSE');
-    return this.prisma.$transaction((tx) => this.grantEnrollment(tx, userId, course.id, course.accessDays, null));
+    if (course.priceMinor > 0)
+      throw AppError.badRequest(
+        'PAYMENT_REQUIRED',
+        'This course is paid; start a payment with purpose COURSE',
+      );
+    return this.prisma.$transaction((tx) =>
+      this.grantEnrollment(tx, userId, course.id, course.accessDays, null),
+    );
   }
 
   /** Called inside the payment transaction. Idempotent per user/course. */
@@ -133,27 +197,51 @@ export class CoursesService {
   }
 
   async revokeForPayment(tx: Tx, paymentId: string) {
-    await tx.enrollment.updateMany({ where: { paymentId, status: EnrollmentStatus.ACTIVE }, data: { status: EnrollmentStatus.CANCELLED } });
+    await tx.enrollment.updateMany({
+      where: { paymentId, status: EnrollmentStatus.ACTIVE },
+      data: { status: EnrollmentStatus.CANCELLED },
+    });
   }
 
-  private async grantEnrollment(tx: Tx, userId: string, courseId: string, accessDays: number | null, paymentId: string | null) {
+  private async grantEnrollment(
+    tx: Tx,
+    userId: string,
+    courseId: string,
+    accessDays: number | null,
+    paymentId: string | null,
+  ) {
     const existing = await tx.enrollment.findUnique({ where: { userId_courseId: { userId, courseId } } });
     const now = new Date();
     // Re-purchase extends access from the later of now / current expiry.
-    const base = existing?.status === EnrollmentStatus.ACTIVE && existing.expiresAt && existing.expiresAt > now ? existing.expiresAt : now;
+    const base =
+      existing?.status === EnrollmentStatus.ACTIVE && existing.expiresAt && existing.expiresAt > now
+        ? existing.expiresAt
+        : now;
     const expiresAt = accessDays ? addDays(base, accessDays) : null;
     return tx.enrollment.upsert({
       where: { userId_courseId: { userId, courseId } },
       create: { userId, courseId, paymentId, expiresAt },
-      update: { status: EnrollmentStatus.ACTIVE, paymentId: paymentId ?? existing?.paymentId, expiresAt, enrolledAt: existing?.status === EnrollmentStatus.ACTIVE ? undefined : now },
+      update: {
+        status: EnrollmentStatus.ACTIVE,
+        paymentId: paymentId ?? existing?.paymentId,
+        expiresAt,
+        enrolledAt: existing?.status === EnrollmentStatus.ACTIVE ? undefined : now,
+      },
     });
   }
 
   async myEnrollments(userId: string) {
-    const rows = await this.prisma.enrollment.findMany({ where: { userId }, include: { course: { include: { _count: { select: { lessons: true } } } } }, orderBy: { enrolledAt: 'desc' } });
+    const rows = await this.prisma.enrollment.findMany({
+      where: { userId },
+      include: { course: { include: { _count: { select: { lessons: true } } } } },
+      orderBy: { enrolledAt: 'desc' },
+    });
     const progress = await this.prisma.lessonProgress.groupBy({ by: ['lessonId'], where: { userId } });
     const doneIds = new Set(progress.map((p) => p.lessonId));
-    const lessons = await this.prisma.lesson.findMany({ where: { courseId: { in: rows.map((r) => r.courseId) } }, select: { id: true, courseId: true } });
+    const lessons = await this.prisma.lesson.findMany({
+      where: { courseId: { in: rows.map((r) => r.courseId) } },
+      select: { id: true, courseId: true },
+    });
     return rows.map((r) => {
       const courseLessons = lessons.filter((l) => l.courseId === r.courseId);
       const completed = courseLessons.filter((l) => doneIds.has(l.id)).length;
@@ -172,30 +260,50 @@ export class CoursesService {
   async completeLesson(userId: string, lessonId: string) {
     const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId } });
     if (!lesson) throw AppError.notFound('Lesson');
-    if (!lesson.isFreePreview && !(await this.activeEnrollment(userId, lesson.courseId))) throw AppError.forbidden('Enrol in the course first', 'NOT_ENROLLED');
-    await this.prisma.lessonProgress.upsert({ where: { userId_lessonId: { userId, lessonId } }, create: { userId, lessonId }, update: {} });
+    if (!lesson.isFreePreview && !(await this.activeEnrollment(userId, lesson.courseId)))
+      throw AppError.forbidden('Enrol in the course first', 'NOT_ENROLLED');
+    await this.prisma.lessonProgress.upsert({
+      where: { userId_lessonId: { userId, lessonId } },
+      create: { userId, lessonId },
+      update: {},
+    });
     const [total, done] = await Promise.all([
       this.prisma.lesson.count({ where: { courseId: lesson.courseId } }),
       this.prisma.lessonProgress.count({ where: { userId, lesson: { courseId: lesson.courseId } } }),
     ]);
     if (total && done >= total) {
-      await this.prisma.enrollment.updateMany({ where: { userId, courseId: lesson.courseId, completedAt: null }, data: { completedAt: new Date(), status: EnrollmentStatus.COMPLETED } });
+      await this.prisma.enrollment.updateMany({
+        where: { userId, courseId: lesson.courseId, completedAt: null },
+        data: { completedAt: new Date(), status: EnrollmentStatus.COMPLETED },
+      });
     }
     return { lessonId, completedLessons: done, totalLessons: total };
   }
 
   private activeEnrollment(userId: string, courseId: string) {
     return this.prisma.enrollment.findFirst({
-      where: { userId, courseId, status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      where: {
+        userId,
+        courseId,
+        status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
     });
   }
 
   // ───────── Admin ─────────
 
   async adminList(q: SearchPaginationQueryDto) {
-    const where: Prisma.CourseWhereInput = { title: q.q ? { contains: q.q, mode: 'insensitive' } : undefined };
+    const where: Prisma.CourseWhereInput = {
+      title: q.q ? { contains: q.q, mode: 'insensitive' } : undefined,
+    };
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.course.findMany({ where, include: { _count: { select: { lessons: true, enrollments: true } } }, orderBy: { updatedAt: 'desc' }, ...pageArgs(q) }),
+      this.prisma.course.findMany({
+        where,
+        include: { _count: { select: { lessons: true, enrollments: true } } },
+        orderBy: { updatedAt: 'desc' },
+        ...pageArgs(q),
+      }),
       this.prisma.course.count({ where }),
     ]);
     return PageResult.of(items, total, q);
@@ -203,19 +311,41 @@ export class CoursesService {
 
   async create(dto: CourseDto, actorId: string, ctx: RequestContext) {
     const c = await this.prisma.course.create({ data: { ...dto, createdById: actorId } });
-    await this.audit.record({ actorId, action: 'course.create', entityType: 'Course', entityId: c.id, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'course.create',
+      entityType: 'Course',
+      entityId: c.id,
+      after: dto,
+      ctx,
+    });
     return c;
   }
 
   async update(id: string, dto: UpdateCourseDto, actorId: string, ctx: RequestContext) {
-    const before = await this.prisma.course.findUnique({ where: { id }, include: { _count: { select: { lessons: true } } } });
+    const before = await this.prisma.course.findUnique({
+      where: { id },
+      include: { _count: { select: { lessons: true } } },
+    });
     if (!before) throw AppError.notFound('Course');
-    if (dto.status === PublishStatus.PUBLISHED && !before._count.lessons) throw AppError.badRequest('COURSE_EMPTY', 'Add lessons before publishing');
+    if (dto.status === PublishStatus.PUBLISHED && !before._count.lessons)
+      throw AppError.badRequest('COURSE_EMPTY', 'Add lessons before publishing');
     const c = await this.prisma.course.update({
       where: { id },
-      data: { ...dto, publishedAt: dto.status === PublishStatus.PUBLISHED && !before.publishedAt ? new Date() : undefined },
+      data: {
+        ...dto,
+        publishedAt: dto.status === PublishStatus.PUBLISHED && !before.publishedAt ? new Date() : undefined,
+      },
     });
-    await this.audit.record({ actorId, action: 'course.update', entityType: 'Course', entityId: id, before, after: dto, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'course.update',
+      entityType: 'Course',
+      entityId: id,
+      before,
+      after: dto,
+      ctx,
+    });
     return c;
   }
 
@@ -226,7 +356,14 @@ export class CoursesService {
       create: { ...dto, courseId },
       update: dto,
     });
-    await this.audit.record({ actorId, action: 'course.lesson.upsert', entityType: 'Lesson', entityId: l.id, after: { ...dto, content: dto.content ? '[content]' : undefined }, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'course.lesson.upsert',
+      entityType: 'Lesson',
+      entityId: l.id,
+      after: { ...dto, content: dto.content ? '[content]' : undefined },
+      ctx,
+    });
     return l;
   }
 }
@@ -289,15 +426,29 @@ export class AdminCoursesController {
   }
   @Patch(':id')
   @AdminOnly(PERMISSIONS.COURSES_MANAGE)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCourseDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCourseDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.courses.update(id, dto, u.id, ctx);
   }
   @Put(':id/lessons')
   @AdminOnly(PERMISSIONS.COURSES_MANAGE)
-  lesson(@Param('id', ParseUUIDPipe) id: string, @Body() dto: LessonDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  lesson(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: LessonDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.courses.upsertLesson(id, dto, u.id, ctx);
   }
 }
 
-@Module({ controllers: [CoursesController, AdminCoursesController], providers: [CoursesService], exports: [CoursesService] })
+@Module({
+  controllers: [CoursesController, AdminCoursesController],
+  providers: [CoursesService],
+  exports: [CoursesService],
+})
 export class CoursesModule {}

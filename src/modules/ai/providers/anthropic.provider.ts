@@ -46,16 +46,26 @@ export class AnthropicProvider implements AiProvider {
       return {
         text,
         model: response.model,
-        inputTokens: response.usage.input_tokens + (response.usage.cache_read_input_tokens ?? 0) + (response.usage.cache_creation_input_tokens ?? 0),
+        inputTokens:
+          response.usage.input_tokens +
+          (response.usage.cache_read_input_tokens ?? 0) +
+          (response.usage.cache_creation_input_tokens ?? 0),
         outputTokens: response.usage.output_tokens,
         refused: response.stop_reason === 'refusal',
       };
     } catch (err) {
       // Connection problems, rate limits and server errors are retryable on another provider.
-      if (err instanceof Anthropic.APIConnectionError || err instanceof Anthropic.RateLimitError || err instanceof Anthropic.InternalServerError) {
+      if (
+        err instanceof Anthropic.APIConnectionError ||
+        err instanceof Anthropic.RateLimitError ||
+        err instanceof Anthropic.InternalServerError
+      ) {
         throw new ProviderUnavailableError(`Anthropic unavailable: ${err.message}`);
       }
-      if (err instanceof Anthropic.APIError && (err.status === undefined || err.status >= 500 || err.status === 529)) {
+      if (
+        err instanceof Anthropic.APIError &&
+        (err.status === undefined || err.status >= 500 || err.status === 529)
+      ) {
         throw new ProviderUnavailableError(`Anthropic error ${err.status}: ${err.message}`);
       }
       throw err;

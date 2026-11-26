@@ -15,7 +15,12 @@ export class AppError extends Error {
   }
 
   static notFound(entity: string, details?: unknown): AppError {
-    return new AppError(`${entity.toUpperCase().replace(/\s+/g, '_')}_NOT_FOUND`, `${entity} not found`, HttpStatus.NOT_FOUND, details);
+    return new AppError(
+      `${entity.toUpperCase().replace(/\s+/g, '_')}_NOT_FOUND`,
+      `${entity} not found`,
+      HttpStatus.NOT_FOUND,
+      details,
+    );
   }
   static forbidden(message = 'You do not have access to this resource', code = 'FORBIDDEN'): AppError {
     return new AppError(code, message, HttpStatus.FORBIDDEN);
@@ -33,8 +38,13 @@ export class AppError extends Error {
     return new AppError('TOO_MANY_REQUESTS', message, HttpStatus.TOO_MANY_REQUESTS, details);
   }
   static paymentRequired(feature: string): AppError {
-    return new AppError('ENTITLEMENT_REQUIRED', `An active plan with "${feature}" is required`, HttpStatus.PAYMENT_REQUIRED, {
-      feature,
-    });
+    return new AppError(
+      'ENTITLEMENT_REQUIRED',
+      `An active plan with "${feature}" is required`,
+      HttpStatus.PAYMENT_REQUIRED,
+      {
+        feature,
+      },
+    );
   }
 }

@@ -3,7 +3,14 @@ import { AiUsageStatus } from '@prisma/client';
 import { APP_CONFIG, AppConfig } from '../../config/configuration';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SETTINGS, SystemConfigService } from '../system-config/system-config.module';
-import { AiProvider, ChatRequest, ChatResult, EMBEDDING_DIMENSIONS, ProviderUnavailableError, estimateCostMicros } from './providers/ai-provider';
+import {
+  AiProvider,
+  ChatRequest,
+  ChatResult,
+  EMBEDDING_DIMENSIONS,
+  ProviderUnavailableError,
+  estimateCostMicros,
+} from './providers/ai-provider';
 import { AnthropicProvider } from './providers/anthropic.provider';
 import { LocalProvider } from './providers/local.provider';
 import { OpenAiCompatibleProvider } from './providers/openai-compatible.provider';
@@ -45,7 +52,11 @@ export class AiGatewayService {
     return names.map((n) => this.providers.get(n)).filter((p): p is AiProvider => !!p && p.isConfigured());
   }
 
-  async chat(req: ChatRequest, ctx: { userId?: string | null; feature: string }, chain?: AiProvider[]): Promise<GatewayChatResult> {
+  async chat(
+    req: ChatRequest,
+    ctx: { userId?: string | null; feature: string },
+    chain?: AiProvider[],
+  ): Promise<GatewayChatResult> {
     const enabled = await this.settings.get<boolean>(SETTINGS.AI_ENABLED, true);
     const providers = enabled ? (chain ?? this.chain()) : [this.providers.get('local')!];
     let lastError: Error | undefined;
@@ -53,17 +64,36 @@ export class AiGatewayService {
       const started = Date.now();
       try {
         const result = await provider.chat(req);
-        await this.recordUsage(ctx, provider.name, result.model, result.inputTokens, result.outputTokens, Date.now() - started, AiUsageStatus.SUCCESS);
+        await this.recordUsage(
+          ctx,
+          provider.name,
+          result.model,
+          result.inputTokens,
+          result.outputTokens,
+          Date.now() - started,
+          AiUsageStatus.SUCCESS,
+        );
         return { ...result, provider: provider.name, fallbackUsed: i > 0 };
       } catch (err) {
         lastError = err as Error;
-        await this.recordUsage(ctx, provider.name, 'unknown', 0, 0, Date.now() - started, AiUsageStatus.FAILED, lastError.message);
+        await this.recordUsage(
+          ctx,
+          provider.name,
+          'unknown',
+          0,
+          0,
+          Date.now() - started,
+          AiUsageStatus.FAILED,
+          lastError.message,
+        );
         if (!(err instanceof ProviderUnavailableError)) {
           // Non-availability errors (bad request etc.) are logged and still fall through to the next provider,
           // but never with secrets in the message.
           this.logger.error(`Provider ${provider.name} failed: ${lastError.message.slice(0, 300)}`);
         } else {
-          this.logger.warn(`Provider ${provider.name} unavailable, falling back: ${lastError.message.slice(0, 200)}`);
+          this.logger.warn(
+            `Provider ${provider.name} unavailable, falling back: ${lastError.message.slice(0, 200)}`,
+          );
         }
       }
     }
@@ -72,18 +102,38 @@ export class AiGatewayService {
 
   async embed(texts: string[], ctx: { userId?: string | null; feature: string }) {
     const preferred = this.providers.get(this.cfg.ai.embeddingProvider);
-    const order = [preferred, this.providers.get('local')].filter((p, i, a): p is AiProvider => !!p && !!p.embed && p.isConfigured() && a.indexOf(p) === i);
+    const order = [preferred, this.providers.get('local')].filter(
+      (p, i, a): p is AiProvider => !!p && !!p.embed && p.isConfigured() && a.indexOf(p) === i,
+    );
     let lastError: Error | undefined;
     for (const provider of order) {
       const started = Date.now();
       try {
         const res = await provider.embed!(texts);
-        if (res.vectors.some((v) => v.length !== EMBEDDING_DIMENSIONS)) throw new Error('Embedding dimension mismatch');
-        await this.recordUsage(ctx, provider.name, res.model, res.inputTokens, 0, Date.now() - started, AiUsageStatus.SUCCESS);
+        if (res.vectors.some((v) => v.length !== EMBEDDING_DIMENSIONS))
+          throw new Error('Embedding dimension mismatch');
+        await this.recordUsage(
+          ctx,
+          provider.name,
+          res.model,
+          res.inputTokens,
+          0,
+          Date.now() - started,
+          AiUsageStatus.SUCCESS,
+        );
         return { ...res, provider: provider.name };
       } catch (err) {
         lastError = err as Error;
-        await this.recordUsage(ctx, provider.name, 'embedding', 0, 0, Date.now() - started, AiUsageStatus.FAILED, lastError.message);
+        await this.recordUsage(
+          ctx,
+          provider.name,
+          'embedding',
+          0,
+          0,
+          Date.now() - started,
+          AiUsageStatus.FAILED,
+          lastError.message,
+        );
       }
     }
     throw lastError ?? new Error('No embedding provider available');

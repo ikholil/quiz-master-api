@@ -28,10 +28,15 @@ export class RevisionService {
       include: { topic: { select: { id: true, name: true, nameBn: true } }, flashcard: true },
     });
     const questionIds = items.filter((i) => i.questionId).map((i) => i.questionId!);
-    const qs = await this.prisma.question.findMany({ where: { id: { in: questionIds }, publishedVersionId: { not: null }, deletedAt: null }, select: { id: true, publishedVersionId: true } });
+    const qs = await this.prisma.question.findMany({
+      where: { id: { in: questionIds }, publishedVersionId: { not: null }, deletedAt: null },
+      select: { id: true, publishedVersionId: true },
+    });
     const versions = await this.questions.loadVersions(qs.map((q) => q.publishedVersionId!));
     const vByQ = new Map(qs.map((q) => [q.id, versions.get(q.publishedVersionId!)!]));
-    const total = await this.prisma.revisionSchedule.count({ where: { userId, dueAt: { lte: new Date() }, itemType: type } });
+    const total = await this.prisma.revisionSchedule.count({
+      where: { userId, dueAt: { lte: new Date() }, itemType: type },
+    });
     return {
       totalDue: total,
       items: items
@@ -43,9 +48,14 @@ export class RevisionService {
           repetitions: i.repetitions,
           lapses: i.lapses,
           topic: i.topic,
-          flashcard: i.flashcard ? { id: i.flashcard.id, front: i.flashcard.front, back: i.flashcard.back, deck: i.flashcard.deck } : null,
+          flashcard: i.flashcard
+            ? { id: i.flashcard.id, front: i.flashcard.front, back: i.flashcard.back, deck: i.flashcard.deck }
+            : null,
           // The student already answered this question before; showing the key here supports revision.
-          question: i.questionId && vByQ.get(i.questionId) ? { ...toStudentView(vByQ.get(i.questionId)!), answerKey: toAnswerKey(vByQ.get(i.questionId)!) } : null,
+          question:
+            i.questionId && vByQ.get(i.questionId)
+              ? { ...toStudentView(vByQ.get(i.questionId)!), answerKey: toAnswerKey(vByQ.get(i.questionId)!) }
+              : null,
         }))
         .filter((i) => i.itemType !== RevisionItemType.QUESTION || i.question),
     };
@@ -56,16 +66,30 @@ export class RevisionService {
     if (!item || item.userId !== userId) throw AppError.notFound('Revision item');
     const now = new Date();
     const next = sm2(item, quality, now);
-    const updated = await this.prisma.revisionSchedule.update({ where: { id: itemId }, data: { ...next, lastReviewedAt: now, lastQuality: quality } });
+    const updated = await this.prisma.revisionSchedule.update({
+      where: { id: itemId },
+      data: { ...next, lastReviewedAt: now, lastQuality: quality },
+    });
     if (item.topicId && item.itemType === RevisionItemType.TOPIC) {
-      await this.prisma.topicMastery.updateMany({ where: { userId, topicId: item.topicId }, data: { lastRevisedAt: now } });
+      await this.prisma.topicMastery.updateMany({
+        where: { userId, topicId: item.topicId },
+        data: { lastRevisedAt: now },
+      });
     }
-    return { id: updated.id, dueAt: updated.dueAt, intervalDays: updated.intervalDays, easeFactor: updated.easeFactor, repetitions: updated.repetitions };
+    return {
+      id: updated.id,
+      dueAt: updated.dueAt,
+      intervalDays: updated.intervalDays,
+      easeFactor: updated.easeFactor,
+      repetitions: updated.repetitions,
+    };
   }
 
   /** Wrong-answer history across practice and exams (latest first). */
   async wrongAnswers(userId: string, q: PaginationQueryDto) {
-    const rows = await this.prisma.$queryRaw<Array<{ questionId: string; versionId: string; source: string; answeredAt: Date; total: bigint }>>`
+    const rows = await this.prisma.$queryRaw<
+      Array<{ questionId: string; versionId: string; source: string; answeredAt: Date; total: bigint }>
+    >`
       SELECT * , COUNT(*) OVER() AS total FROM (
         SELECT pa."questionId", pa."questionVersionId" AS "versionId", 'PRACTICE' AS source, pa."answeredAt"
           FROM practice_answers pa JOIN practice_sessions ps ON ps.id = pa."sessionId"
@@ -80,7 +104,12 @@ export class RevisionService {
     return PageResult.of(
       rows.map((r) => {
         const v = versions.get(r.versionId)!;
-        return { source: r.source, answeredAt: r.answeredAt, question: toStudentView(v), answerKey: toAnswerKey(v) };
+        return {
+          source: r.source,
+          answeredAt: r.answeredAt,
+          question: toStudentView(v),
+          answerKey: toAnswerKey(v),
+        };
       }),
       rows.length ? Number(rows[0].total) : 0,
       q,
@@ -112,7 +141,12 @@ export class RevisionService {
 
   async listFlashcards(user: AuthUser, q: FlashcardQueryDto) {
     const where: Prisma.FlashcardWhereInput = {
-      OR: q.scope === 'mine' ? [{ ownerId: user.id }] : q.scope === 'public' ? [{ isPublic: true, ownerId: null }] : [{ ownerId: user.id }, { isPublic: true, ownerId: null }],
+      OR:
+        q.scope === 'mine'
+          ? [{ ownerId: user.id }]
+          : q.scope === 'public'
+            ? [{ isPublic: true, ownerId: null }]
+            : [{ ownerId: user.id }, { isPublic: true, ownerId: null }],
       topicId: q.topicId,
       deck: q.deck,
     };
@@ -135,10 +169,19 @@ export class RevisionService {
   /** Students create private cards; staff with flashcards.manage create public system cards. */
   async createFlashcard(user: AuthUser, dto: FlashcardDto) {
     const system = !!dto.isPublic;
-    if (system && !user.permissions.includes(PERMISSIONS.FLASHCARDS_MANAGE)) throw AppError.forbidden('Only staff can create public flashcards');
-    if (dto.topicId && !(await this.prisma.topic.count({ where: { id: dto.topicId } }))) throw AppError.badRequest('INVALID_TOPIC', 'Topic not found');
+    if (system && !user.permissions.includes(PERMISSIONS.FLASHCARDS_MANAGE))
+      throw AppError.forbidden('Only staff can create public flashcards');
+    if (dto.topicId && !(await this.prisma.topic.count({ where: { id: dto.topicId } })))
+      throw AppError.badRequest('INVALID_TOPIC', 'Topic not found');
     const card = await this.prisma.flashcard.create({
-      data: { ownerId: system ? null : user.id, topicId: dto.topicId, deck: dto.deck ?? 'default', front: dto.front, back: dto.back, isPublic: system },
+      data: {
+        ownerId: system ? null : user.id,
+        topicId: dto.topicId,
+        deck: dto.deck ?? 'default',
+        front: dto.front,
+        back: dto.back,
+        isPublic: system,
+      },
     });
     if (!system) await this.schedule(user.id, card.id);
     return card;
@@ -157,7 +200,10 @@ export class RevisionService {
 
   /** Adds cards (own or public) to the user's spaced-repetition schedule. */
   async study(userId: string, cardIds: string[]) {
-    const cards = await this.prisma.flashcard.findMany({ where: { id: { in: cardIds }, OR: [{ ownerId: userId }, { isPublic: true, ownerId: null }] }, select: { id: true } });
+    const cards = await this.prisma.flashcard.findMany({
+      where: { id: { in: cardIds }, OR: [{ ownerId: userId }, { isPublic: true, ownerId: null }] },
+      select: { id: true },
+    });
     for (const c of cards) await this.schedule(userId, c.id);
     return { scheduled: cards.length };
   }

@@ -45,7 +45,9 @@ export function computeMasteryScore(s: Omit<MasteryState, 'masteryScore'>): numb
   if (!s.totalAnswered) return 0;
   const overall = s.totalCorrect / s.totalAnswered;
   const confidence = Math.min(1, s.totalAnswered / CONFIDENCE_N);
-  return round(clamp(confidence * (0.6 * s.recentAccuracy + 0.25 * overall + 0.15 * speedFactor(s.avgResponseMs))));
+  return round(
+    clamp(confidence * (0.6 * s.recentAccuracy + 0.25 * overall + 0.15 * speedFactor(s.avgResponseMs))),
+  );
 }
 
 /** Applies a sequence of answers (oldest first) to a topic's mastery state. */
@@ -83,7 +85,14 @@ export interface TopicPriorityInput {
 }
 
 export interface PriorityFactor {
-  key: 'weakness' | 'exam_weight' | 'staleness' | 'not_started' | 'revision_due' | 'declining' | 'prerequisite_gap';
+  key:
+    | 'weakness'
+    | 'exam_weight'
+    | 'staleness'
+    | 'not_started'
+    | 'revision_due'
+    | 'declining'
+    | 'prerequisite_gap';
   value: number;
   weight: number;
   contribution: number;
@@ -100,7 +109,15 @@ export interface TopicPriority {
   reason: string;
 }
 
-const PRIORITY_WEIGHTS = { weakness: 0.35, exam_weight: 0.25, staleness: 0.15, not_started: 0.15, revision_due: 0.1, declining: 0.1, prerequisite_gap: -0.15 } as const;
+const PRIORITY_WEIGHTS = {
+  weakness: 0.35,
+  exam_weight: 0.25,
+  staleness: 0.15,
+  not_started: 0.15,
+  revision_due: 0.1,
+  declining: 0.1,
+  prerequisite_gap: -0.15,
+} as const;
 
 export function topicPriority(input: TopicPriorityInput, now: Date): TopicPriority {
   const m = input.mastery;
@@ -111,12 +128,24 @@ export function topicPriority(input: TopicPriorityInput, now: Date): TopicPriori
   const raw: Array<[PriorityFactor['key'], number, string]> = [
     ['weakness', m && m.totalAnswered ? 1 - mastery : 0.5, `mastery ${Math.round(mastery * 100)}%`],
     ['exam_weight', clamp(input.examWeight), `syllabus weight ${Math.round(input.examWeight * 100)}%`],
-    ['staleness', days === null ? 0 : clamp(days / 14), days === null ? 'never practised' : `last practised ${Math.floor(days)} day(s) ago`],
+    [
+      'staleness',
+      days === null ? 0 : clamp(days / 14),
+      days === null ? 'never practised' : `last practised ${Math.floor(days)} day(s) ago`,
+    ],
     ['not_started', m && m.totalAnswered ? 0 : 1, 'not started yet'],
     ['revision_due', input.revisionDue ? 1 : 0, 'spaced revision is due'],
-    ['declining', overall !== null && m!.totalAnswered >= 5 && m!.recentAccuracy + 0.15 < overall ? 1 : 0, 'recent accuracy is dropping'],
+    [
+      'declining',
+      overall !== null && m!.totalAnswered >= 5 && m!.recentAccuracy + 0.15 < overall ? 1 : 0,
+      'recent accuracy is dropping',
+    ],
     // Topics whose prerequisites are weak are deprioritised: study the foundations first.
-    ['prerequisite_gap', clamp(input.weakPrerequisites / 2), `${input.weakPrerequisites} weak prerequisite topic(s)`],
+    [
+      'prerequisite_gap',
+      clamp(input.weakPrerequisites / 2),
+      `${input.weakPrerequisites} weak prerequisite topic(s)`,
+    ],
   ];
   const factors = raw.map(([key, value, label]) => {
     const weight = PRIORITY_WEIGHTS[key];
@@ -129,11 +158,20 @@ export function topicPriority(input: TopicPriorityInput, now: Date): TopicPriori
     .slice(0, 3)
     .map((f) => f.label)
     .join('; ');
-  return { topicId: input.topicId, topicName: input.topicName, score, masteryScore: mastery, factors, reason: reason || 'balanced coverage' };
+  return {
+    topicId: input.topicId,
+    topicName: input.topicName,
+    score,
+    masteryScore: mastery,
+    factors,
+    reason: reason || 'balanced coverage',
+  };
 }
 
 export function rankTopics(inputs: TopicPriorityInput[], now: Date): TopicPriority[] {
-  return inputs.map((i) => topicPriority(i, now)).sort((a, b) => b.score - a.score || a.topicId.localeCompare(b.topicId));
+  return inputs
+    .map((i) => topicPriority(i, now))
+    .sort((a, b) => b.score - a.score || a.topicId.localeCompare(b.topicId));
 }
 
 // ───────────────────────── Spaced repetition (SM-2) ─────────────────────────
@@ -159,7 +197,13 @@ export function sm2(state: Sm2State, quality: number, now: Date): Sm2State & { d
   }
   easeFactor = Math.max(1.3, round(easeFactor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)), 3));
   intervalDays = Math.min(intervalDays, 365);
-  return { easeFactor, intervalDays, repetitions, lapses, dueAt: new Date(now.getTime() + intervalDays * DAY_MS) };
+  return {
+    easeFactor,
+    intervalDays,
+    repetitions,
+    lapses,
+    dueAt: new Date(now.getTime() + intervalDays * DAY_MS),
+  };
 }
 
 // ───────────────────────── Daily plan generation ─────────────────────────
@@ -213,14 +257,23 @@ export function generateDailyPlan(input: DailyPlanInput): PlannedTask[] {
   };
 
   // 1. Mock exam: weekly cadence when there is enough time; it replaces most other work that day.
-  if (input.mockCandidate && input.mockCandidate.durationMinutes <= remaining && (input.daysSinceLastMock === null || input.daysSinceLastMock >= MOCK_INTERVAL_DAYS)) {
+  if (
+    input.mockCandidate &&
+    input.mockCandidate.durationMinutes <= remaining &&
+    (input.daysSinceLastMock === null || input.daysSinceLastMock >= MOCK_INTERVAL_DAYS)
+  ) {
     take({
       type: 'MOCK_EXAM',
       title: input.mockCandidate.title,
       mockTemplateId: input.mockCandidate.id,
       estimatedMinutes: input.mockCandidate.durationMinutes,
       priorityScore: 1,
-      reason: { summary: input.daysSinceLastMock === null ? 'Take a first full mock to benchmark your level' : `No mock exam in the last ${input.daysSinceLastMock} days` },
+      reason: {
+        summary:
+          input.daysSinceLastMock === null
+            ? 'Take a first full mock to benchmark your level'
+            : `No mock exam in the last ${input.daysSinceLastMock} days`,
+      },
     });
   }
 
@@ -243,12 +296,30 @@ export function generateDailyPlan(input: DailyPlanInput): PlannedTask[] {
 
   // 3. Spaced revision (≈1.5 min per due item, at most 25% of the day).
   if (input.dueRevisionCount > 0 && remaining >= 5) {
-    const minutes = Math.min(Math.ceil(input.dueRevisionCount * 1.5), Math.floor(input.availableMinutes * 0.25), remaining);
-    if (minutes >= 5) take({ type: 'REVISION', title: `Revise ${input.dueRevisionCount} due item(s)`, estimatedMinutes: minutes, priorityScore: 0.85, reason: { summary: 'Items are due in your spaced-repetition schedule' } });
+    const minutes = Math.min(
+      Math.ceil(input.dueRevisionCount * 1.5),
+      Math.floor(input.availableMinutes * 0.25),
+      remaining,
+    );
+    if (minutes >= 5)
+      take({
+        type: 'REVISION',
+        title: `Revise ${input.dueRevisionCount} due item(s)`,
+        estimatedMinutes: minutes,
+        priorityScore: 0.85,
+        reason: { summary: 'Items are due in your spaced-repetition schedule' },
+      });
   }
   if (input.dueFlashcardCount > 0 && remaining >= 5) {
     const minutes = Math.min(Math.ceil(input.dueFlashcardCount * 0.5), 15, remaining);
-    if (minutes >= 5) take({ type: 'FLASHCARDS', title: `Review ${input.dueFlashcardCount} flashcard(s)`, estimatedMinutes: minutes, priorityScore: 0.8, reason: { summary: 'Flashcards are due for review' } });
+    if (minutes >= 5)
+      take({
+        type: 'FLASHCARDS',
+        title: `Review ${input.dueFlashcardCount} flashcard(s)`,
+        estimatedMinutes: minutes,
+        priorityScore: 0.8,
+        reason: { summary: 'Flashcards are due for review' },
+      });
   }
 
   // 4. Practice blocks on the highest-priority topics; weakest topics get a reading task first.
@@ -258,10 +329,25 @@ export function generateDailyPlan(input: DailyPlanInput): PlannedTask[] {
     if (recoveredTopics.has(p.topicId)) continue;
     const material = input.materials.get(p.topicId);
     if (material && p.masteryScore < 0.4 && material.estimatedMinutes <= remaining - 10) {
-      take({ type: 'READ_MATERIAL', title: material.title, topicId: p.topicId, materialId: material.id, estimatedMinutes: material.estimatedMinutes, priorityScore: p.score, reason: { summary: `Review the concept first: ${p.reason}`, factors: p.factors } });
+      take({
+        type: 'READ_MATERIAL',
+        title: material.title,
+        topicId: p.topicId,
+        materialId: material.id,
+        estimatedMinutes: material.estimatedMinutes,
+        priorityScore: p.score,
+        reason: { summary: `Review the concept first: ${p.reason}`, factors: p.factors },
+      });
     }
     const minutes = Math.min(PRACTICE_BLOCK_MIN, remaining);
-    take({ type: 'PRACTICE', title: `Practise: ${p.topicName}`, topicId: p.topicId, estimatedMinutes: minutes, priorityScore: p.score, reason: { summary: p.reason, factors: p.factors } });
+    take({
+      type: 'PRACTICE',
+      title: `Practise: ${p.topicName}`,
+      topicId: p.topicId,
+      estimatedMinutes: minutes,
+      priorityScore: p.score,
+      reason: { summary: p.reason, factors: p.factors },
+    });
   }
   return tasks;
 }

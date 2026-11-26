@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Global, Module, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Global,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminOnly, CurrentUser, Public, ReqContext } from '../../common/decorators/auth.decorators';
 import { ApiEnvelope } from '../../common/swagger/api-envelope';
@@ -73,7 +85,12 @@ export class AdminSyllabusController {
   }
   @Patch('subjects/:id')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
-  updateSubject(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateNodeDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  updateSubject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNodeDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.updateSubject(id, dto, u.id, ctx);
   }
   @Post('chapters')
@@ -83,7 +100,12 @@ export class AdminSyllabusController {
   }
   @Patch('chapters/:id')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
-  updateChapter(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateNodeDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  updateChapter(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNodeDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.updateChapter(id, dto, u.id, ctx);
   }
   @Post('topics')
@@ -93,7 +115,12 @@ export class AdminSyllabusController {
   }
   @Patch('topics/:id')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
-  updateTopic(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateNodeDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  updateTopic(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNodeDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.updateTopic(id, dto, u.id, ctx);
   }
   @Post('topic-relations')
@@ -103,7 +130,11 @@ export class AdminSyllabusController {
   }
   @Delete('topic-relations')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
-  removeRelation(@Body() dto: TopicRelationDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  removeRelation(
+    @Body() dto: TopicRelationDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.removeRelation(dto, u.id, ctx);
   }
 
@@ -120,27 +151,49 @@ export class AdminSyllabusController {
   }
   @Post('syllabus-versions')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
-  createVersion(@Body() dto: SyllabusVersionDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  createVersion(
+    @Body() dto: SyllabusVersionDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.createVersion(dto, u.id, ctx);
   }
   @Put('syllabus-versions/:id/mappings')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
   @ApiEnvelope(SyllabusTreeResponse)
-  setMappings(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetMappingsDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  setMappings(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetMappingsDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.setMappings(id, dto, u.id, ctx);
   }
   @Patch('syllabus-versions/:id/status')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
-  setStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SyllabusStatusDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  setStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SyllabusStatusDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.setStatus(id, dto.status, u.id, ctx);
   }
   @Post('syllabus-versions/:id/make-current')
   @AdminOnly(PERMISSIONS.SYLLABUS_MANAGE)
-  makeCurrent(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  makeCurrent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.syllabus.makeCurrent(id, u.id, ctx);
   }
 }
 
 @Global()
-@Module({ controllers: [PublicSyllabusController, AdminSyllabusController], providers: [SyllabusService], exports: [SyllabusService] })
+@Module({
+  controllers: [PublicSyllabusController, AdminSyllabusController],
+  providers: [SyllabusService],
+  exports: [SyllabusService],
+})
 export class SyllabusModule {}

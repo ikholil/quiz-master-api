@@ -15,7 +15,10 @@ export class EntitlementGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
-    const feature = this.reflector.getAllAndOverride<string>(ENTITLEMENT_KEY, [context.getHandler(), context.getClass()]);
+    const feature = this.reflector.getAllAndOverride<string>(ENTITLEMENT_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (!feature) return true;
     const user = context.switchToHttp().getRequest<Request>().user;
     if (!user) throw AppError.unauthorized();

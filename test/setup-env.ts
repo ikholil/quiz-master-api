@@ -1,7 +1,8 @@
 // Environment for integration tests: a dedicated database and Redis DB, no background workers or schedulers
 // (tests invoke job handlers directly so assertions are deterministic).
 process.env.NODE_ENV = 'test';
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://quiz:quiz@localhost:5432/quiz_master_test?schema=public';
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ?? 'postgresql://quiz:quiz@localhost:5432/quiz_master_test?schema=public';
 process.env.REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://localhost:6379/15';
 process.env.WORKERS_ENABLED = 'false';
 process.env.SCHEDULERS_ENABLED = 'false';

@@ -20,7 +20,11 @@ export class RedisLifecycle implements OnModuleDestroy {
       inject: [APP_CONFIG],
       useFactory: (cfg: AppConfig) => {
         const logger = new Logger('Redis');
-        const client = new Redis(cfg.redisUrl, { maxRetriesPerRequest: 3, lazyConnect: false, enableReadyCheck: true });
+        const client = new Redis(cfg.redisUrl, {
+          maxRetriesPerRequest: 3,
+          lazyConnect: false,
+          enableReadyCheck: true,
+        });
         client.on('error', (err) => logger.error(`Redis error: ${err.message}`));
         return client;
       },

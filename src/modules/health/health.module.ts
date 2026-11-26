@@ -14,10 +14,16 @@ export function markShuttingDown(): void {
   shuttingDown = true;
 }
 
-async function timed<T>(fn: () => Promise<T>, timeoutMs = 2000): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+async function timed<T>(
+  fn: () => Promise<T>,
+  timeoutMs = 2000,
+): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
   const start = Date.now();
   try {
-    await Promise.race([fn(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs))]);
+    await Promise.race([
+      fn(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs)),
+    ]);
     return { ok: true, latencyMs: Date.now() - start };
   } catch (err) {
     return { ok: false, latencyMs: Date.now() - start, error: (err as Error).message };

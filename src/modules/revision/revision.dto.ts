@@ -1,12 +1,29 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { RevisionItemType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class DueQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) limit?: number;
-  @ApiPropertyOptional({ enum: RevisionItemType }) @IsOptional() @IsEnum(RevisionItemType) type?: RevisionItemType;
+  @ApiPropertyOptional({ enum: RevisionItemType })
+  @IsOptional()
+  @IsEnum(RevisionItemType)
+  type?: RevisionItemType;
 }
 
 export class ReviewItemDto {

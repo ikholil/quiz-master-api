@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ClientPlatform, OtpPurpose, UserStatus } from '@prisma/client';
-import { IsEmail, IsEnum, IsIn, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{8,128}$/;
 
@@ -18,8 +28,22 @@ export class RequestOtpDto {
   /** Bangladeshi mobile number (01XXXXXXXXX / +8801XXXXXXXXX) or email address. */
   @IsString() @MaxLength(254) identifier: string;
 
-  @ApiProperty({ enum: [OtpPurpose.LOGIN, OtpPurpose.VERIFY_EMAIL, OtpPurpose.VERIFY_PHONE, OtpPurpose.RESET_PASSWORD, OtpPurpose.DELETE_ACCOUNT] })
-  @IsIn([OtpPurpose.LOGIN, OtpPurpose.VERIFY_EMAIL, OtpPurpose.VERIFY_PHONE, OtpPurpose.RESET_PASSWORD, OtpPurpose.DELETE_ACCOUNT])
+  @ApiProperty({
+    enum: [
+      OtpPurpose.LOGIN,
+      OtpPurpose.VERIFY_EMAIL,
+      OtpPurpose.VERIFY_PHONE,
+      OtpPurpose.RESET_PASSWORD,
+      OtpPurpose.DELETE_ACCOUNT,
+    ],
+  })
+  @IsIn([
+    OtpPurpose.LOGIN,
+    OtpPurpose.VERIFY_EMAIL,
+    OtpPurpose.VERIFY_PHONE,
+    OtpPurpose.RESET_PASSWORD,
+    OtpPurpose.DELETE_ACCOUNT,
+  ])
   purpose: OtpPurpose;
 }
 
@@ -30,7 +54,9 @@ export class VerifyOtpDto extends DeviceInfoDto {
 
 export class RegisterEmailDto extends DeviceInfoDto {
   @IsEmail() @MaxLength(254) email: string;
-  @Matches(PASSWORD_RULE, { message: 'password must be 8-128 characters with at least one letter and one digit' })
+  @Matches(PASSWORD_RULE, {
+    message: 'password must be 8-128 characters with at least one letter and one digit',
+  })
   password: string;
   @IsString() @MinLength(2) @MaxLength(120) fullName: string;
 }
@@ -53,14 +79,18 @@ export class RefreshDto {
 export class ResetPasswordDto {
   @IsString() @MaxLength(254) identifier: string;
   @Matches(/^\d{6}$/) code: string;
-  @Matches(PASSWORD_RULE, { message: 'password must be 8-128 characters with at least one letter and one digit' })
+  @Matches(PASSWORD_RULE, {
+    message: 'password must be 8-128 characters with at least one letter and one digit',
+  })
   newPassword: string;
 }
 
 export class ChangePasswordDto {
   /** Required when the account already has a password. */
   @IsOptional() @IsString() @MaxLength(128) currentPassword?: string;
-  @Matches(PASSWORD_RULE, { message: 'password must be 8-128 characters with at least one letter and one digit' })
+  @Matches(PASSWORD_RULE, {
+    message: 'password must be 8-128 characters with at least one letter and one digit',
+  })
   newPassword: string;
 }
 

@@ -22,12 +22,15 @@ async function bootstrap() {
   const shutdown = (signal: string) => {
     markShuttingDown();
     NestLogger.log(`${signal} received, draining…`, 'Bootstrap');
-    setTimeout(() => {
-      app
-        .close()
-        .then(() => process.exit(0))
-        .catch(() => process.exit(1));
-    }, Number(process.env.SHUTDOWN_DRAIN_MS ?? 5000));
+    setTimeout(
+      () => {
+        app
+          .close()
+          .then(() => process.exit(0))
+          .catch(() => process.exit(1));
+      },
+      Number(process.env.SHUTDOWN_DRAIN_MS ?? 5000),
+    );
   };
   process.once('SIGTERM', () => shutdown('SIGTERM'));
   process.once('SIGINT', () => shutdown('SIGINT'));

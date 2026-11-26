@@ -1,9 +1,29 @@
-import { Body, Controller, Delete, Get, Global, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Global,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '../../common/decorators/auth.decorators';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user';
-import { DueQueryDto, FlashcardDto, FlashcardQueryDto, ReviewItemDto, StudyCardsDto, UpdateFlashcardDto } from './revision.dto';
+import {
+  DueQueryDto,
+  FlashcardDto,
+  FlashcardQueryDto,
+  ReviewItemDto,
+  StudyCardsDto,
+  UpdateFlashcardDto,
+} from './revision.dto';
 import { RevisionService } from './revision.service';
 
 @ApiTags('Revision & flashcards')
@@ -50,7 +70,11 @@ export class RevisionController {
   }
 
   @Patch('flashcards/:id')
-  update(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateFlashcardDto) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateFlashcardDto,
+  ) {
     return this.revision.updateFlashcard(user, id, dto);
   }
 

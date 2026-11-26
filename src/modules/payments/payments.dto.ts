@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentPurpose, PaymentStatus } from '@prisma/client';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class InitiatePaymentDto {
@@ -21,7 +31,10 @@ export class RefundDto {
 
 export class AdminPaymentQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: PaymentStatus }) @IsOptional() @IsEnum(PaymentStatus) status?: PaymentStatus;
-  @ApiPropertyOptional({ enum: PaymentPurpose }) @IsOptional() @IsEnum(PaymentPurpose) purpose?: PaymentPurpose;
+  @ApiPropertyOptional({ enum: PaymentPurpose })
+  @IsOptional()
+  @IsEnum(PaymentPurpose)
+  purpose?: PaymentPurpose;
   @IsOptional() @IsUUID() userId?: string;
   @IsOptional() @IsString() @MaxLength(30) provider?: string;
   @IsOptional() @IsString() @MaxLength(60) merchantTxnId?: string;
@@ -36,7 +49,8 @@ export class PaymentResponse {
   @ApiProperty() amountMinor: number;
   @ApiProperty() currency: string;
   @ApiProperty({ enum: PaymentStatus }) status: PaymentStatus;
-  @ApiPropertyOptional({ nullable: true, description: 'Open this URL to complete payment (PENDING only)' }) redirectUrl: string | null;
+  @ApiPropertyOptional({ nullable: true, description: 'Open this URL to complete payment (PENDING only)' })
+  redirectUrl: string | null;
   @ApiPropertyOptional({ nullable: true }) paidAt: Date | null;
   @ApiProperty() refundedMinor: number;
   @ApiProperty() createdAt: Date;

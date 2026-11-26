@@ -1,6 +1,25 @@
-import { Body, Controller, Delete, Get, Global, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Global,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AdminOnly, Authenticated, CurrentUser, Public, ReqContext } from '../../common/decorators/auth.decorators';
+import {
+  AdminOnly,
+  Authenticated,
+  CurrentUser,
+  Public,
+  ReqContext,
+} from '../../common/decorators/auth.decorators';
 import { ApiEnvelope, ApiPaginated } from '../../common/swagger/api-envelope';
 import type { AuthUser, RequestContext } from '../../common/types/auth-user';
 import { workers } from '../../queue/queue.constants';
@@ -52,7 +71,11 @@ export class StudentQuestionsController {
 
   @Post(':id/reports')
   @ApiOperation({ summary: 'Report an error in a published question' })
-  report(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateReportDto, @CurrentUser() user: AuthUser) {
+  report(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateReportDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.questions.report(id, dto, user.id);
   }
 }
@@ -101,7 +124,12 @@ export class AdminQuestionsController {
 
   @Patch('reports/:id')
   @AdminOnly(PERMISSIONS.QUESTION_REPORTS_MANAGE)
-  resolveReport(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ResolveReportDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  resolveReport(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResolveReportDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.resolveReport(id, dto, u, ctx);
   }
 
@@ -113,8 +141,14 @@ export class AdminQuestionsController {
 
   @Post('imports')
   @AdminOnly(PERMISSIONS.QUESTIONS_IMPORT)
-  @ApiOperation({ summary: 'Start a background CSV/JSON import (upload the file with purpose QUESTION_IMPORT first)' })
-  startImport(@Body() dto: ImportQuestionsDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  @ApiOperation({
+    summary: 'Start a background CSV/JSON import (upload the file with purpose QUESTION_IMPORT first)',
+  })
+  startImport(
+    @Body() dto: ImportQuestionsDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.startImport(dto, u, ctx);
   }
 
@@ -144,41 +178,67 @@ export class AdminQuestionsController {
 
   @Patch(':id')
   @AdminOnly(PERMISSIONS.QUESTIONS_EDIT)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateQuestionDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateQuestionDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.update(id, dto, u, ctx);
   }
 
   @Post(':id/submit')
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.QUESTIONS_EDIT)
-  submit(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  submit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.submitForReview(id, u, ctx);
   }
 
   @Post(':id/review')
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.QUESTIONS_REVIEW)
-  review(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReviewDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  review(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviewDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.review(id, dto, u, ctx);
   }
 
   @Post(':id/publish')
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.QUESTIONS_PUBLISH)
-  publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  publish(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.publish(id, u, ctx);
   }
 
   @Post(':id/archive')
   @HttpCode(200)
   @AdminOnly(PERMISSIONS.QUESTIONS_PUBLISH)
-  archive(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.archive(id, u, ctx);
   }
 
   @Delete(':id')
   @AdminOnly(PERMISSIONS.QUESTIONS_EDIT)
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.questions.remove(id, u, ctx);
   }
 }

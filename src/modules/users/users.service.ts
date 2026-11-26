@@ -66,12 +66,16 @@ export class UsersService {
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     if (dto.targetExamIds?.length) {
-      const count = await this.prisma.exam.count({ where: { id: { in: dto.targetExamIds }, status: 'PUBLISHED' } });
-      if (count !== new Set(dto.targetExamIds).size) throw AppError.badRequest('INVALID_EXAM', 'One or more target exams do not exist');
+      const count = await this.prisma.exam.count({
+        where: { id: { in: dto.targetExamIds }, status: 'PUBLISHED' },
+      });
+      if (count !== new Set(dto.targetExamIds).size)
+        throw AppError.badRequest('INVALID_EXAM', 'One or more target exams do not exist');
     }
     if (dto.avatarFileId) {
       const file = await this.prisma.storedFile.findUnique({ where: { id: dto.avatarFileId } });
-      if (!file || file.ownerId !== userId || file.purpose !== 'AVATAR') throw AppError.badRequest('INVALID_FILE', 'Invalid avatar file');
+      if (!file || file.ownerId !== userId || file.purpose !== 'AVATAR')
+        throw AppError.badRequest('INVALID_FILE', 'Invalid avatar file');
     }
     const data: Prisma.ProfileUpdateInput = {
       ...dto,
@@ -88,8 +92,10 @@ export class UsersService {
   /** Sends a DELETE_ACCOUNT code to the user's verified phone (preferred) or email. */
   async requestDeletionCode(userId: string, ctx: RequestContext) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    if (user.phone && user.phoneVerifiedAt) return this.otp.issue(user.phone, 'SMS', OtpPurpose.DELETE_ACCOUNT, ctx.ip);
-    if (user.email && user.emailVerifiedAt) return this.otp.issue(user.email, 'EMAIL', OtpPurpose.DELETE_ACCOUNT, ctx.ip);
+    if (user.phone && user.phoneVerifiedAt)
+      return this.otp.issue(user.phone, 'SMS', OtpPurpose.DELETE_ACCOUNT, ctx.ip);
+    if (user.email && user.emailVerifiedAt)
+      return this.otp.issue(user.email, 'EMAIL', OtpPurpose.DELETE_ACCOUNT, ctx.ip);
     throw AppError.badRequest('NO_VERIFIED_CONTACT', 'No verified phone or email on this account');
   }
 
@@ -114,21 +120,53 @@ export class UsersService {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
-        data: { phone: null, email: null, passwordHash: null, phoneVerifiedAt: null, emailVerifiedAt: null, status: UserStatus.DELETED, deletedAt: new Date() },
+        data: {
+          phone: null,
+          email: null,
+          passwordHash: null,
+          phoneVerifiedAt: null,
+          emailVerifiedAt: null,
+          status: UserStatus.DELETED,
+          deletedAt: new Date(),
+        },
       });
       await tx.profile.updateMany({
         where: { userId },
-        data: { fullName: null, displayName: null, avatarFileId: null, gender: null, dateOfBirth: null, district: null, institution: null, educationLevel: null },
+        data: {
+          fullName: null,
+          displayName: null,
+          avatarFileId: null,
+          gender: null,
+          dateOfBirth: null,
+          district: null,
+          institution: null,
+          educationLevel: null,
+        },
       });
       await tx.deviceToken.deleteMany({ where: { userId } });
       await tx.aiConversation.deleteMany({ where: { userId } });
       await tx.flashcard.deleteMany({ where: { ownerId: userId } });
       await tx.userRole.deleteMany({ where: { userId } });
-      await tx.userSubscription.updateMany({ where: { userId, status: { in: ['ACTIVE', 'PENDING'] } }, data: { status: 'CANCELLED', cancelledAt: new Date() } });
-      await tx.entitlement.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
-      await tx.discussion.updateMany({ where: { authorId: userId }, data: { body: '[deleted]', status: 'REMOVED', deletedAt: new Date() } });
-      await tx.discussionReply.updateMany({ where: { authorId: userId }, data: { body: '[deleted]', status: 'REMOVED', deletedAt: new Date() } });
-      await this.audit.record({ actorId: userId, action: 'user.delete', entityType: 'User', entityId: userId, ctx }, tx);
+      await tx.userSubscription.updateMany({
+        where: { userId, status: { in: ['ACTIVE', 'PENDING'] } },
+        data: { status: 'CANCELLED', cancelledAt: new Date() },
+      });
+      await tx.entitlement.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await tx.discussion.updateMany({
+        where: { authorId: userId },
+        data: { body: '[deleted]', status: 'REMOVED', deletedAt: new Date() },
+      });
+      await tx.discussionReply.updateMany({
+        where: { authorId: userId },
+        data: { body: '[deleted]', status: 'REMOVED', deletedAt: new Date() },
+      });
+      await this.audit.record(
+        { actorId: userId, action: 'user.delete', entityType: 'User', entityId: userId, ctx },
+        tx,
+      );
     });
     await this.sessions.revokeAllForUser(userId, 'account_deleted');
     await this.rbac.invalidate(userId);
@@ -141,7 +179,9 @@ export class UsersService {
     });
     if (recent) return this.exportView(recent);
     const dayAgo = new Date(Date.now() - 86_400_000);
-    const todayCount = await this.prisma.dataExportRequest.count({ where: { userId, createdAt: { gte: dayAgo } } });
+    const todayCount = await this.prisma.dataExportRequest.count({
+      where: { userId, createdAt: { gte: dayAgo } },
+    });
     if (todayCount >= 3) throw AppError.tooMany('Data export can be requested at most 3 times per day');
     const req = await this.prisma.dataExportRequest.create({ data: { userId } });
     await this.maintenance.add(JOBS.DATA_EXPORT, { requestId: req.id }, { jobId: `export-${req.id}` });
@@ -154,40 +194,123 @@ export class UsersService {
     return this.exportView(req, true);
   }
 
-  private async exportView(req: { id: string; status: DataExportStatus; fileId: string | null; expiresAt: Date | null; createdAt: Date; userId: string }, withUrl = false) {
+  private async exportView(
+    req: {
+      id: string;
+      status: DataExportStatus;
+      fileId: string | null;
+      expiresAt: Date | null;
+      createdAt: Date;
+      userId: string;
+    },
+    withUrl = false,
+  ) {
     let downloadUrl: string | null = null;
-    if (withUrl && req.status === DataExportStatus.READY && req.fileId && req.expiresAt && req.expiresAt > new Date()) {
-      const url = await this.files.getDownloadUrl(req.fileId, { id: req.userId, sessionId: '', roles: [], permissions: [] }, 900);
+    if (
+      withUrl &&
+      req.status === DataExportStatus.READY &&
+      req.fileId &&
+      req.expiresAt &&
+      req.expiresAt > new Date()
+    ) {
+      const url = await this.files.getDownloadUrl(
+        req.fileId,
+        { id: req.userId, sessionId: '', roles: [], permissions: [] },
+        900,
+      );
       downloadUrl = url.url;
     }
-    return { id: req.id, status: req.status, downloadUrl, expiresAt: req.expiresAt, createdAt: req.createdAt };
+    return {
+      id: req.id,
+      status: req.status,
+      downloadUrl,
+      expiresAt: req.expiresAt,
+      createdAt: req.createdAt,
+    };
   }
 
   /** Background job: assemble every personal record into a JSON document. */
   async buildDataExport(requestId: string): Promise<void> {
     const req = await this.prisma.dataExportRequest.findUnique({ where: { id: requestId } });
     if (!req || req.status === DataExportStatus.READY) return;
-    await this.prisma.dataExportRequest.update({ where: { id: requestId }, data: { status: DataExportStatus.PROCESSING } });
+    await this.prisma.dataExportRequest.update({
+      where: { id: requestId },
+      data: { status: DataExportStatus.PROCESSING },
+    });
     try {
       const userId = req.userId;
-      const [user, attempts, practice, mastery, plans, flashcards, conversations, enrollments, subscriptions, payments, notifications, discussions, replies, tickets, sessions] =
-        await Promise.all([
-          this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } }),
-          this.prisma.examAttempt.findMany({ where: { userId }, include: { result: true, answers: { select: { questionId: true, selectedOptionIds: true, textAnswer: true, awardedMarks: true, answeredAt: true } } } }),
-          this.prisma.practiceSession.findMany({ where: { userId }, include: { answers: true } }),
-          this.prisma.topicMastery.findMany({ where: { userId } }),
-          this.prisma.studyPlan.findMany({ where: { userId }, include: { tasks: true } }),
-          this.prisma.flashcard.findMany({ where: { ownerId: userId } }),
-          this.prisma.aiConversation.findMany({ where: { userId }, include: { messages: { select: { role: true, content: true, createdAt: true } } } }),
-          this.prisma.enrollment.findMany({ where: { userId } }),
-          this.prisma.userSubscription.findMany({ where: { userId } }),
-          this.prisma.payment.findMany({ where: { userId }, select: { id: true, purpose: true, amountMinor: true, currency: true, status: true, provider: true, paidAt: true, createdAt: true } }),
-          this.prisma.notification.findMany({ where: { userId } }),
-          this.prisma.discussion.findMany({ where: { authorId: userId } }),
-          this.prisma.discussionReply.findMany({ where: { authorId: userId } }),
-          this.prisma.supportTicket.findMany({ where: { userId }, include: { messages: true } }),
-          this.prisma.session.findMany({ where: { userId }, select: { platform: true, deviceName: true, ipAddress: true, createdAt: true, lastSeenAt: true, revokedAt: true } }),
-        ]);
+      const [
+        user,
+        attempts,
+        practice,
+        mastery,
+        plans,
+        flashcards,
+        conversations,
+        enrollments,
+        subscriptions,
+        payments,
+        notifications,
+        discussions,
+        replies,
+        tickets,
+        sessions,
+      ] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } }),
+        this.prisma.examAttempt.findMany({
+          where: { userId },
+          include: {
+            result: true,
+            answers: {
+              select: {
+                questionId: true,
+                selectedOptionIds: true,
+                textAnswer: true,
+                awardedMarks: true,
+                answeredAt: true,
+              },
+            },
+          },
+        }),
+        this.prisma.practiceSession.findMany({ where: { userId }, include: { answers: true } }),
+        this.prisma.topicMastery.findMany({ where: { userId } }),
+        this.prisma.studyPlan.findMany({ where: { userId }, include: { tasks: true } }),
+        this.prisma.flashcard.findMany({ where: { ownerId: userId } }),
+        this.prisma.aiConversation.findMany({
+          where: { userId },
+          include: { messages: { select: { role: true, content: true, createdAt: true } } },
+        }),
+        this.prisma.enrollment.findMany({ where: { userId } }),
+        this.prisma.userSubscription.findMany({ where: { userId } }),
+        this.prisma.payment.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            purpose: true,
+            amountMinor: true,
+            currency: true,
+            status: true,
+            provider: true,
+            paidAt: true,
+            createdAt: true,
+          },
+        }),
+        this.prisma.notification.findMany({ where: { userId } }),
+        this.prisma.discussion.findMany({ where: { authorId: userId } }),
+        this.prisma.discussionReply.findMany({ where: { authorId: userId } }),
+        this.prisma.supportTicket.findMany({ where: { userId }, include: { messages: true } }),
+        this.prisma.session.findMany({
+          where: { userId },
+          select: {
+            platform: true,
+            deviceName: true,
+            ipAddress: true,
+            createdAt: true,
+            lastSeenAt: true,
+            revokedAt: true,
+          },
+        }),
+      ]);
       const safeUser = user ? { ...user, passwordHash: undefined } : null;
       const doc = {
         generatedAt: new Date().toISOString(),
@@ -208,14 +331,28 @@ export class UsersService {
         supportTickets: tickets,
       };
       const body = Buffer.from(JSON.stringify(doc, (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
-      const file = await this.files.storeGenerated(userId, `data-export-${requestId}.json`, 'application/json', body, 'DATA_EXPORT');
+      const file = await this.files.storeGenerated(
+        userId,
+        `data-export-${requestId}.json`,
+        'application/json',
+        body,
+        'DATA_EXPORT',
+      );
       await this.prisma.dataExportRequest.update({
         where: { id: requestId },
-        data: { status: DataExportStatus.READY, fileId: file.id, completedAt: new Date(), expiresAt: new Date(Date.now() + EXPORT_TTL_DAYS * 86_400_000) },
+        data: {
+          status: DataExportStatus.READY,
+          fileId: file.id,
+          completedAt: new Date(),
+          expiresAt: new Date(Date.now() + EXPORT_TTL_DAYS * 86_400_000),
+        },
       });
     } catch (err) {
       this.logger.error(`Data export ${requestId} failed: ${(err as Error).message}`);
-      await this.prisma.dataExportRequest.update({ where: { id: requestId }, data: { status: DataExportStatus.FAILED, error: 'Export failed' } });
+      await this.prisma.dataExportRequest.update({
+        where: { id: requestId },
+        data: { status: DataExportStatus.FAILED, error: 'Export failed' },
+      });
       throw err;
     }
   }
@@ -238,7 +375,10 @@ export class UsersService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         where,
-        include: { profile: { select: { fullName: true } }, roles: { include: { role: { select: { key: true } } } } },
+        include: {
+          profile: { select: { fullName: true } },
+          roles: { include: { role: { select: { key: true } } } },
+        },
         orderBy: { createdAt: q.sortOrder },
         ...pageArgs(q),
       }),
@@ -265,7 +405,12 @@ export class UsersService {
     if (!me) throw AppError.notFound('User');
     const [attempts, subscriptions, sessions] = await Promise.all([
       this.prisma.examAttempt.count({ where: { userId: id } }),
-      this.prisma.userSubscription.findMany({ where: { userId: id }, include: { plan: { select: { code: true, name: true } } }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      this.prisma.userSubscription.findMany({
+        where: { userId: id },
+        include: { plan: { select: { code: true, name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
       this.sessions.listSessions(id),
     ]);
     return { ...me, stats: { attempts }, subscriptions, activeSessions: sessions };
@@ -277,10 +422,20 @@ export class UsersService {
     if (!user || user.deletedAt) throw AppError.notFound('User');
     const target = await this.rbac.getAccess(id);
     const actor = await this.rbac.getAccess(actorId);
-    if (target.roles.includes('SUPER_ADMIN') && !actor.roles.includes('SUPER_ADMIN')) throw AppError.forbidden('Cannot change a super administrator');
+    if (target.roles.includes('SUPER_ADMIN') && !actor.roles.includes('SUPER_ADMIN'))
+      throw AppError.forbidden('Cannot change a super administrator');
     await this.prisma.user.update({ where: { id }, data: { status: dto.status } });
     if (dto.status === UserStatus.SUSPENDED) await this.sessions.revokeAllForUser(id, 'suspended');
-    await this.audit.record({ actorId, action: 'user.status', entityType: 'User', entityId: id, before: { status: user.status }, after: { status: dto.status }, metadata: { reason: dto.reason }, ctx });
+    await this.audit.record({
+      actorId,
+      action: 'user.status',
+      entityType: 'User',
+      entityId: id,
+      before: { status: user.status },
+      after: { status: dto.status },
+      metadata: { reason: dto.reason },
+      ctx,
+    });
     return { id, status: dto.status };
   }
 }

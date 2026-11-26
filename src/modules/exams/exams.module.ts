@@ -1,8 +1,27 @@
-import { Body, Controller, Delete, Get, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiProperty, ApiTags } from '@nestjs/swagger';
 import { PublishStatus } from '@prisma/client';
 import { IsEnum } from 'class-validator';
-import { AdminOnly, Authenticated, CurrentUser, Public, ReqContext } from '../../common/decorators/auth.decorators';
+import {
+  AdminOnly,
+  Authenticated,
+  CurrentUser,
+  Public,
+  ReqContext,
+} from '../../common/decorators/auth.decorators';
 import { ApiEnvelope, ApiPaginated } from '../../common/swagger/api-envelope';
 import type { AuthUser, RequestContext } from '../../common/types/auth-user';
 import { PERMISSIONS } from '../rbac/permissions';
@@ -113,25 +132,43 @@ export class AdminExamsController {
 
   @Post('exam-categories')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  createCategory(@Body() dto: CreateCategoryDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  createCategory(
+    @Body() dto: CreateCategoryDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.createCategory(dto, u.id, ctx);
   }
 
   @Patch('exam-categories/:id')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  updateCategory(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCategoryDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  updateCategory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCategoryDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.updateCategory(id, dto, u.id, ctx);
   }
 
   @Post('authorities')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  createAuthority(@Body() dto: CreateAuthorityDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  createAuthority(
+    @Body() dto: CreateAuthorityDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.createAuthority(dto, u.id, ctx);
   }
 
   @Patch('authorities/:id')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  updateAuthority(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateAuthorityDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  updateAuthority(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateAuthorityDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.updateAuthority(id, dto, u.id, ctx);
   }
 
@@ -157,19 +194,33 @@ export class AdminExamsController {
 
   @Patch('exams/:id')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateExamDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateExamDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.updateExam(id, dto, u.id, ctx);
   }
 
   @Put('exams/:id/stages')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  upsertStage(@Param('id', ParseUUIDPipe) id: string, @Body() dto: StageDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  upsertStage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: StageDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.upsertStage(id, dto, u.id, ctx);
   }
 
   @Delete('stages/:id')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  deleteStage(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  deleteStage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.deleteStage(id, u.id, ctx);
   }
 
@@ -181,13 +232,23 @@ export class AdminExamsController {
 
   @Post('exams/:id/notices')
   @AdminOnly(PERMISSIONS.NOTICES_MANAGE)
-  createNotice(@Param('id', ParseUUIDPipe) id: string, @Body() dto: NoticeDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  createNotice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: NoticeDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.createNotice(id, dto, u.id, ctx);
   }
 
   @Patch('notices/:id/status')
   @AdminOnly(PERMISSIONS.NOTICES_MANAGE)
-  noticeStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: NoticeStatusDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  noticeStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: NoticeStatusDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.setNoticeStatus(id, dto.status, u.id, ctx);
   }
 
@@ -199,13 +260,23 @@ export class AdminExamsController {
 
   @Post('exams/:id/previous-papers')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  createPaper(@Param('id', ParseUUIDPipe) id: string, @Body() dto: PaperDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  createPaper(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PaperDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.createPaper(id, dto, u.id, ctx);
   }
 
   @Patch('previous-papers/:id')
   @AdminOnly(PERMISSIONS.CATALOG_MANAGE)
-  updatePaper(@Param('id', ParseUUIDPipe) id: string, @Body() dto: PaperDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  updatePaper(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PaperDto,
+    @CurrentUser() u: AuthUser,
+    @ReqContext() ctx: RequestContext,
+  ) {
     return this.exams.updatePaper(id, dto, u.id, ctx);
   }
 }

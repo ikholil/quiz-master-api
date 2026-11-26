@@ -43,8 +43,16 @@ export interface PaymentProvider {
   initiate(payment: Payment, ctx: InitiateContext): Promise<InitiateResult>;
   verify(payment: Payment): Promise<VerifyResult>;
   /** Validates authenticity (signature) and extracts the event. Throws on invalid signatures. */
-  parseWebhook(headers: Record<string, string | string[] | undefined>, rawBody: Buffer, body: Record<string, unknown>): Promise<WebhookEvent>;
-  refund?(payment: Payment, amountMinor: number, reason: string): Promise<{ providerRef: string; status: 'COMPLETED' | 'PROCESSING' }>;
+  parseWebhook(
+    headers: Record<string, string | string[] | undefined>,
+    rawBody: Buffer,
+    body: Record<string, unknown>,
+  ): Promise<WebhookEvent>;
+  refund?(
+    payment: Payment,
+    amountMinor: number,
+    reason: string,
+  ): Promise<{ providerRef: string; status: 'COMPLETED' | 'PROCESSING' }>;
 }
 
 export class InvalidWebhookError extends Error {}

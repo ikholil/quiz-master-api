@@ -1,16 +1,49 @@
 import { Difficulty } from '@prisma/client';
-import { DAY_MS, applyAnswers, emptyMastery, generateDailyPlan, rankTopics, sm2, speedFactor, topicPriority, TopicPriorityInput } from './engine';
+import {
+  DAY_MS,
+  applyAnswers,
+  emptyMastery,
+  generateDailyPlan,
+  rankTopics,
+  sm2,
+  speedFactor,
+  topicPriority,
+  TopicPriorityInput,
+} from './engine';
 
 const now = new Date('2026-06-01T06:00:00Z');
 
 function input(over: Partial<TopicPriorityInput> = {}): TopicPriorityInput {
-  return { topicId: 't1', topicName: 'Topic', examWeight: 0.5, mastery: null, lastPracticedAt: null, revisionDue: false, weakPrerequisites: 0, ...over };
+  return {
+    topicId: 't1',
+    topicName: 'Topic',
+    examWeight: 0.5,
+    mastery: null,
+    lastPracticedAt: null,
+    revisionDue: false,
+    weakPrerequisites: 0,
+    ...over,
+  };
 }
 
 describe('mastery', () => {
   it('increases with correct answers and decreases with wrong ones', () => {
-    const up = applyAnswers(emptyMastery(), Array.from({ length: 10 }, () => ({ correct: true, difficulty: Difficulty.MEDIUM, responseMs: 20_000 })));
-    const down = applyAnswers(up, Array.from({ length: 5 }, () => ({ correct: false, difficulty: Difficulty.MEDIUM, responseMs: 20_000 })));
+    const up = applyAnswers(
+      emptyMastery(),
+      Array.from({ length: 10 }, () => ({
+        correct: true,
+        difficulty: Difficulty.MEDIUM,
+        responseMs: 20_000,
+      })),
+    );
+    const down = applyAnswers(
+      up,
+      Array.from({ length: 5 }, () => ({
+        correct: false,
+        difficulty: Difficulty.MEDIUM,
+        responseMs: 20_000,
+      })),
+    );
     expect(up.masteryScore).toBeGreaterThan(0.8);
     expect(down.masteryScore).toBeLessThan(up.masteryScore);
     expect(down.totalAnswered).toBe(15);
@@ -37,8 +70,14 @@ describe('mastery', () => {
 
 describe('topic priority', () => {
   it('ranks weak, heavily weighted topics first and explains why', () => {
-    const weak = applyAnswers(emptyMastery(), Array.from({ length: 10 }, (_, i) => ({ correct: i < 3, difficulty: Difficulty.MEDIUM })));
-    const strong = applyAnswers(emptyMastery(), Array.from({ length: 10 }, () => ({ correct: true, difficulty: Difficulty.MEDIUM })));
+    const weak = applyAnswers(
+      emptyMastery(),
+      Array.from({ length: 10 }, (_, i) => ({ correct: i < 3, difficulty: Difficulty.MEDIUM })),
+    );
+    const strong = applyAnswers(
+      emptyMastery(),
+      Array.from({ length: 10 }, () => ({ correct: true, difficulty: Difficulty.MEDIUM })),
+    );
     const ranked = rankTopics(
       [
         input({ topicId: 'strong', mastery: strong, examWeight: 0.5, lastPracticedAt: now }),
@@ -55,14 +94,22 @@ describe('topic priority', () => {
   });
 
   it('boosts stale topics and topics due for revision', () => {
-    const m = applyAnswers(emptyMastery(), Array.from({ length: 10 }, () => ({ correct: true, difficulty: Difficulty.MEDIUM })));
+    const m = applyAnswers(
+      emptyMastery(),
+      Array.from({ length: 10 }, () => ({ correct: true, difficulty: Difficulty.MEDIUM })),
+    );
     const fresh = topicPriority(input({ mastery: m, lastPracticedAt: now }), now);
-    const stale = topicPriority(input({ mastery: m, lastPracticedAt: new Date(now.getTime() - 20 * DAY_MS), revisionDue: true }), now);
+    const stale = topicPriority(
+      input({ mastery: m, lastPracticedAt: new Date(now.getTime() - 20 * DAY_MS), revisionDue: true }),
+      now,
+    );
     expect(stale.score).toBeGreaterThan(fresh.score);
   });
 
   it('deprioritises topics with weak prerequisites', () => {
-    expect(topicPriority(input({ weakPrerequisites: 2 }), now).score).toBeLessThan(topicPriority(input(), now).score);
+    expect(topicPriority(input({ weakPrerequisites: 2 }), now).score).toBeLessThan(
+      topicPriority(input(), now).score,
+    );
   });
 
   it('is deterministic', () => {
@@ -87,10 +134,26 @@ describe('sm2', () => {
 });
 
 describe('daily plan', () => {
-  const priorities = rankTopics([input({ topicId: 't1', topicName: 'A' }), input({ topicId: 't2', topicName: 'B' }), input({ topicId: 't3', topicName: 'C' })], now);
+  const priorities = rankTopics(
+    [
+      input({ topicId: 't1', topicName: 'A' }),
+      input({ topicId: 't2', topicName: 'B' }),
+      input({ topicId: 't3', topicName: 'C' }),
+    ],
+    now,
+  );
 
   it('fills the time budget without exceeding it', () => {
-    const tasks = generateDailyPlan({ availableMinutes: 60, priorities, dueRevisionCount: 4, dueFlashcardCount: 0, carryOver: [], mockCandidate: null, daysSinceLastMock: 1, materials: new Map() });
+    const tasks = generateDailyPlan({
+      availableMinutes: 60,
+      priorities,
+      dueRevisionCount: 4,
+      dueFlashcardCount: 0,
+      carryOver: [],
+      mockCandidate: null,
+      daysSinceLastMock: 1,
+      materials: new Map(),
+    });
     const total = tasks.reduce((n, t) => n + t.estimatedMinutes, 0);
     expect(total).toBeLessThanOrEqual(60);
     expect(tasks[0].type).toBe('REVISION');
@@ -99,13 +162,39 @@ describe('daily plan', () => {
   });
 
   it('schedules a mock exam weekly when time allows', () => {
-    const tasks = generateDailyPlan({ availableMinutes: 120, priorities, dueRevisionCount: 0, dueFlashcardCount: 0, carryOver: [], mockCandidate: { id: 'm', title: 'Mock', durationMinutes: 60 }, daysSinceLastMock: 8, materials: new Map() });
+    const tasks = generateDailyPlan({
+      availableMinutes: 120,
+      priorities,
+      dueRevisionCount: 0,
+      dueFlashcardCount: 0,
+      carryOver: [],
+      mockCandidate: { id: 'm', title: 'Mock', durationMinutes: 60 },
+      daysSinceLastMock: 8,
+      materials: new Map(),
+    });
     expect(tasks[0].type).toBe('MOCK_EXAM');
   });
 
   it('recovers missed tasks within 40% of the day', () => {
-    const carryOver = [1, 2, 3].map((i) => ({ id: `x${i}`, type: 'PRACTICE' as const, title: `Missed ${i}`, topicId: `m${i}`, mockTemplateId: null, materialId: null, estimatedMinutes: 20 }));
-    const tasks = generateDailyPlan({ availableMinutes: 60, priorities, dueRevisionCount: 0, dueFlashcardCount: 0, carryOver, mockCandidate: null, daysSinceLastMock: 1, materials: new Map() });
+    const carryOver = [1, 2, 3].map((i) => ({
+      id: `x${i}`,
+      type: 'PRACTICE' as const,
+      title: `Missed ${i}`,
+      topicId: `m${i}`,
+      mockTemplateId: null,
+      materialId: null,
+      estimatedMinutes: 20,
+    }));
+    const tasks = generateDailyPlan({
+      availableMinutes: 60,
+      priorities,
+      dueRevisionCount: 0,
+      dueFlashcardCount: 0,
+      carryOver,
+      mockCandidate: null,
+      daysSinceLastMock: 1,
+      materials: new Map(),
+    });
     const recovered = tasks.filter((t) => t.reason.recovery);
     expect(recovered.length).toBe(1);
   });

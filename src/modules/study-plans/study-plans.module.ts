@@ -1,8 +1,25 @@
-import { Body, Controller, Get, Global, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Global,
+  HttpCode,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '../../common/decorators/auth.decorators';
 import type { AuthUser } from '../../common/types/auth-user';
-import { CreateStudyPlanDto, RescheduleTaskDto, TaskRangeQueryDto, UpdateStudyPlanDto } from './study-plans.dto';
+import {
+  CreateStudyPlanDto,
+  RescheduleTaskDto,
+  TaskRangeQueryDto,
+  UpdateStudyPlanDto,
+} from './study-plans.dto';
 import { StudyPlansService } from './study-plans.service';
 
 @ApiTags('Study plans')
@@ -27,7 +44,11 @@ export class StudyPlansController {
   }
 
   @Patch(':id')
-  update(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateStudyPlanDto) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStudyPlanDto,
+  ) {
     return this.plans.update(user.id, id, dto);
   }
 
@@ -38,7 +59,11 @@ export class StudyPlansController {
   }
 
   @Get(':id/tasks')
-  tasks(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Query() q: TaskRangeQueryDto) {
+  tasks(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() q: TaskRangeQueryDto,
+  ) {
     return this.plans.tasks(user.id, id, q);
   }
 
@@ -61,7 +86,11 @@ export class StudyPlansController {
 
   @Post('tasks/:taskId/reschedule')
   @HttpCode(200)
-  reschedule(@CurrentUser() user: AuthUser, @Param('taskId', ParseUUIDPipe) taskId: string, @Body() dto: RescheduleTaskDto) {
+  reschedule(
+    @CurrentUser() user: AuthUser,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: RescheduleTaskDto,
+  ) {
     return this.plans.reschedule(user.id, taskId, dto);
   }
 }
