@@ -10,7 +10,7 @@ import { CreateMockTemplateDto, MockExamDetail, MockExamSummary, MockQueryDto, U
 import { MockExamsService } from './mock-exams.service';
 import { QuestionSelector } from './question-selector';
 
-class StatusDto {
+class MockStatusDto {
   @ApiProperty({ enum: PublishStatus }) @IsEnum(PublishStatus) status: PublishStatus;
 }
 
@@ -79,7 +79,7 @@ export class AdminMockExamsController {
 
   @Patch(':id/status')
   @AdminOnly(PERMISSIONS.MOCK_EXAMS_MANAGE)
-  status(@Param('id', ParseUUIDPipe) id: string, @Body() dto: StatusDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  status(@Param('id', ParseUUIDPipe) id: string, @Body() dto: MockStatusDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
     return this.mocks.setStatus(id, dto.status, u.id, ctx);
   }
 }

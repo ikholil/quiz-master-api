@@ -21,7 +21,7 @@ export function configureApp(app: INestApplication): void {
   if (cfg.trustProxy) express.set('trust proxy', 1);
   express.disable('x-powered-by');
 
-  app.setGlobalPrefix('api', { exclude: [] });
+  app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));
   app.use(compression());

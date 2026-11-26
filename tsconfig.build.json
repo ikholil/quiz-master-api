@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "incremental": false },
+  "compilerOptions": { "incremental": false, "rootDir": "." },
   "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma"]
 }

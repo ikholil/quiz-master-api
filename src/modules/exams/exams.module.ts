@@ -24,7 +24,7 @@ import {
 } from './exams.dto';
 import { ExamsService } from './exams.service';
 
-class StatusDto {
+class NoticeStatusDto {
   @ApiProperty({ enum: PublishStatus }) @IsEnum(PublishStatus) status: PublishStatus;
 }
 
@@ -187,7 +187,7 @@ export class AdminExamsController {
 
   @Patch('notices/:id/status')
   @AdminOnly(PERMISSIONS.NOTICES_MANAGE)
-  noticeStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: StatusDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
+  noticeStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: NoticeStatusDto, @CurrentUser() u: AuthUser, @ReqContext() ctx: RequestContext) {
     return this.exams.setNoticeStatus(id, dto.status, u.id, ctx);
   }
 

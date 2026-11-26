@@ -12,7 +12,8 @@ import { ErrorReporter } from './common/monitoring/error-reporter';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler.storage';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
-import { RedisModule } from './redis/redis.module';
+import type Redis from 'ioredis';
+import { REDIS, RedisModule } from './redis/redis.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AttemptsModule } from './modules/attempts/attempts.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -90,12 +91,11 @@ import { UsersModule } from './modules/users/users.module';
     RedisModule,
     QueueModule,
     ThrottlerModule.forRootAsync({
-      inject: [APP_CONFIG, RedisThrottlerStorage],
-      useFactory: (cfg: AppConfig, storage: RedisThrottlerStorage) => ({
+      inject: [APP_CONFIG, REDIS],
+      useFactory: (cfg: AppConfig, redis: Redis) => ({
         throttlers: [{ name: 'default', ttl: cfg.rateLimit.ttlSeconds * 1000, limit: cfg.rateLimit.limit }],
-        storage,
+        storage: new RedisThrottlerStorage(redis),
       }),
-      extraProviders: [RedisThrottlerStorage],
     }),
     AuditModule,
     RbacModule,
